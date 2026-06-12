@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/book_accent.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
-import '../../widgets/common.dart';
 import '../../widgets/ring.dart';
 import '../insights/logic/formulas.dart';
 import '../insights/logic/personality.dart';
+import '../premium/entitlement.dart';
 import 'achievements_screen.dart';
 import 'badges.dart';
 import 'goal_sheet.dart';
@@ -55,6 +55,8 @@ class ProfileScreen extends ConsumerWidget {
         evaluateBadges(books: books, sessions: sessions, notes: notes)
             .where((b) => b.earned)
             .length;
+    final premium =
+        ref.watch(premiumProvider).value ?? const PremiumState();
 
     return Scaffold(
       body: SafeArea(
@@ -160,9 +162,10 @@ class ProfileScreen extends ConsumerWidget {
                   context,
                   Icons.workspace_premium_rounded,
                   'BookDNA Premium',
-                  'Knowledge graph, shelf scan & more — Phase 3',
-                  () => showToast(context,
-                      'Premium (₹199/mo · ₹1,499/yr) launches with Phase 3'),
+                  premium.active
+                      ? 'Active — ${premium.daysLeft} day${premium.daysLeft == 1 ? '' : 's'} left'
+                      : 'Knowledge graph, unlimited GPT & more',
+                  () => context.push('/premium'),
                 ),
                 _row(
                   context,

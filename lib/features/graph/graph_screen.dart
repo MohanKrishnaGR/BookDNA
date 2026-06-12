@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/book_accent.dart';
 import '../../core/providers.dart';
 import '../../widgets/book_cover.dart';
-import '../../widgets/common.dart';
 import '../ai/ai_repository.dart';
+import '../premium/entitlement.dart';
 import 'graph_physics.dart';
 
 const _freeBookLimit = 20;
@@ -33,7 +33,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
   bool _dragMoved = false;
   List<(String, String)> _themeEdges = const [];
   bool _hasAnalysis = false;
-  bool _premium = false;
 
   @override
   void initState() {
@@ -46,9 +45,6 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
     })
       ..start();
     _loadAnalysisEdges();
-    ref.read(databaseProvider).getPref('premium').then((v) {
-      if (mounted) setState(() => _premium = v == '1');
-    });
   }
 
   Future<void> _loadAnalysisEdges() async {
@@ -93,7 +89,8 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final books = ref.watch(booksProvider).value ?? const [];
-    final limit = _premium ? _premiumBookLimit : _freeBookLimit;
+    final premium = ref.watch(isPremiumProvider);
+    final limit = premium ? _premiumBookLimit : _freeBookLimit;
 
     return Scaffold(
       appBar: AppBar(
@@ -126,15 +123,14 @@ class _GraphScreenState extends ConsumerState<GraphScreen>
               ),
             ]),
           ),
-          if (!_premium && books.length > _freeBookLimit)
+          if (!premium && books.length > _freeBookLimit)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Card(
                 color: scheme.tertiaryContainer,
                 child: ListTile(
                   dense: true,
-                  onTap: () => showToast(context,
-                      'Premium (₹199/mo) unlocks the full graph — arrives with Phase 3'),
+                  onTap: () => context.push('/premium'),
                   leading: Icon(Icons.lock_open_rounded,
                       size: 20, color: scheme.onTertiaryContainer),
                   title: Text(

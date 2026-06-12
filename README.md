@@ -18,7 +18,7 @@ phases lives in the repo owner's plan file; phase status below.
 | **P1 — Personal core** | Library (4 views), barcode scanner + ISBN import, book details (notes/rating/lend/share), reading tracker (sessions, streaks, heatmap), insights (DNA donut, personality, evolution, radar, worth), home dashboard, goal editor, settings, CSV export | ✅ Built (offline-first, local Drift DB, seeded demo library) |
 | **M1.6 — Auth + sync** | Supabase auth (email + anonymous guest, guest→account upgrade), offline-first LWW sync engine (push/pull/watermarks/tombstones), RLS schema, badges + achievements | ✅ Built & verified against local Supabase (`supabase start`) |
 | **P2 — AI** | Library GPT chat (streaming, `claude-haiku-4-5`), shelf analysis (`claude-fable-5`, structured output), force-directed knowledge graph, server-side quotas | ✅ Built & verified (demo fallback until `ANTHROPIC_API_KEY` is set) |
-| **P3 — Social + premium** | Challenges, leaderboard, friend feed, wrapped story, Play Billing paywall | Planned |
+| **P3 — Social + premium** | Challenges (server membership, locally computed progress), weekly leaderboard RPC scoped to your circle, monthly Wrapped story, paywall + server-granted 7-day trial entitlement | ✅ Built & verified (Play Billing wiring awaits a Play Console; trial is live) |
 
 ## Architecture
 
@@ -95,3 +95,21 @@ whole flow stays testable. The knowledge graph
 ([graph_physics.dart](lib/features/graph/graph_physics.dart)) renders genre
 clusters immediately and adds dashed cross-cluster "bridge" edges once an
 analysis has produced `theme_edges`; free tier shows the top 20 books.
+
+### Social & premium (Phase 3)
+
+- **Challenges** — global catalogue in Postgres, membership in
+  `challenge_members`; progress (streak / finishes / genres this month) is
+  computed from the member's own local data, so it works offline.
+- **Leaderboard** — `weekly_leaderboard()` security-definer RPC returns
+  weekly page totals for you + accepted `follows` only; friends' raw
+  sessions are never exposed.
+- **Wrapped** — auto-advancing monthly story
+  ([wrapped_stats.dart](lib/features/wrapped/wrapped_stats.dart)) computed
+  locally, with share-out.
+- **Premium** — `profiles.premium_until` is server-set only via the
+  `verify-purchase` function: one-time 7-day trial today; Play Billing
+  receipt verification slots into the same endpoint once a Play Console
+  service account exists (products `bookdna_monthly_199` /
+  `bookdna_yearly_1499`). The entitlement is cached locally and gates the
+  knowledge graph and AI quotas.

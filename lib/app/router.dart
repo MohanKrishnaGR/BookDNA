@@ -6,6 +6,7 @@ import '../features/ai/chat_screen.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/book_details/book_details_screen.dart';
 import '../features/graph/graph_screen.dart';
+import '../features/community/challenges_screen.dart';
 import '../features/community/community_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/import/import_screen.dart';
@@ -15,11 +16,13 @@ import '../features/library/library_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/onboarding/splash_screen.dart';
+import '../features/premium/paywall_screen.dart';
 import '../features/profile/achievements_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/scanner/scanner_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/tracker/tracker_screen.dart';
+import '../features/wrapped/wrapped_screen.dart';
 import 'shell.dart';
 
 final router = GoRouter(
@@ -94,6 +97,24 @@ final router = GoRouter(
     GoRoute(
       path: '/graph',
       pageBuilder: (_, state) => _slideIn(state, const GraphScreen()),
+    ),
+    GoRoute(
+      path: '/challenges',
+      pageBuilder: (_, state) => _slideIn(state, const ChallengesScreen()),
+    ),
+    GoRoute(
+      path: '/premium',
+      pageBuilder: (_, state) => _slideIn(state, const PaywallScreen()),
+    ),
+    GoRoute(
+      path: '/wrapped',
+      pageBuilder: (_, state) => CustomTransitionPage(
+        key: state.pageKey,
+        child: const WrappedScreen(),
+        transitionDuration: const Duration(milliseconds: 350),
+        transitionsBuilder: (context, animation, secondary, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
     ),
   ],
 );

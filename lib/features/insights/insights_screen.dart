@@ -53,8 +53,7 @@ class InsightsScreen extends ConsumerWidget {
                   ],
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: () =>
-                      showToast(context, 'Monthly Wrapped arrives in Phase 3'),
+                  onPressed: () => context.push('/wrapped'),
                   icon: const Icon(Icons.play_circle_rounded, size: 18),
                   label: const Text('Wrapped'),
                 ),

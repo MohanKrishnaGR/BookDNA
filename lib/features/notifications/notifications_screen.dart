@@ -61,11 +61,11 @@ class NotificationsScreen extends ConsumerWidget {
         ),
       (
         icon: Icons.auto_awesome_rounded,
-        hue: 210,
-        title: 'AI analysis is coming',
-        sub: 'Library GPT and your knowledge graph arrive in Phase 2',
-        action: null,
-        onAction: null,
+        hue: 150,
+        title: 'Your Wrapped is ready',
+        sub: 'Your month in books, as a story — see how it went',
+        action: 'Watch',
+        onAction: () => context.push('/wrapped'),
       ),
     ];
 
