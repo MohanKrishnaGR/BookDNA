@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/ai/analysis_screen.dart';
+import '../features/ai/chat_screen.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/book_details/book_details_screen.dart';
+import '../features/graph/graph_screen.dart';
 import '../features/community/community_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/import/import_screen.dart';
@@ -79,6 +82,18 @@ final router = GoRouter(
     GoRoute(
       path: '/achievements',
       pageBuilder: (_, state) => _slideIn(state, const AchievementsScreen()),
+    ),
+    GoRoute(
+      path: '/ai',
+      pageBuilder: (_, state) => _slideIn(state, const AiAnalysisScreen()),
+    ),
+    GoRoute(
+      path: '/ai/chat',
+      pageBuilder: (_, state) => _slideIn(state, const AiChatScreen()),
+    ),
+    GoRoute(
+      path: '/graph',
+      pageBuilder: (_, state) => _slideIn(state, const GraphScreen()),
     ),
   ],
 );

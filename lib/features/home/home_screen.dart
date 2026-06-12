@@ -460,7 +460,7 @@ class _QuickActions extends StatelessWidget {
     final actions = [
       (Icons.qr_code_scanner_rounded, 'Scan book', '/scanner'),
       (Icons.edit_note_rounded, 'Add manually', '/scanner?manual=1'),
-      (Icons.auto_awesome_rounded, 'AI analysis', '/insights'),
+      (Icons.auto_awesome_rounded, 'AI analysis', '/ai'),
       (Icons.flag_rounded, 'Challenges', '/community'),
     ];
     return Container(
@@ -475,7 +475,7 @@ class _QuickActions extends StatelessWidget {
             Expanded(
               child: InkWell(
                 onTap: () => route.startsWith('/scanner') ||
-                        route.startsWith('/notifications')
+                        route.startsWith('/ai')
                     ? context.push(route)
                     : context.go(route),
                 borderRadius: BorderRadius.circular(12),

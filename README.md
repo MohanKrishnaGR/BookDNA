@@ -17,7 +17,7 @@ phases lives in the repo owner's plan file; phase status below.
 |---|---|---|
 | **P1 — Personal core** | Library (4 views), barcode scanner + ISBN import, book details (notes/rating/lend/share), reading tracker (sessions, streaks, heatmap), insights (DNA donut, personality, evolution, radar, worth), home dashboard, goal editor, settings, CSV export | ✅ Built (offline-first, local Drift DB, seeded demo library) |
 | **M1.6 — Auth + sync** | Supabase auth (email + anonymous guest, guest→account upgrade), offline-first LWW sync engine (push/pull/watermarks/tombstones), RLS schema, badges + achievements | ✅ Built & verified against local Supabase (`supabase start`) |
-| **P2 — AI** | Library GPT chat + shelf analysis via Claude (Supabase Edge Functions), knowledge graph | Planned |
+| **P2 — AI** | Library GPT chat (streaming, `claude-haiku-4-5`), shelf analysis (`claude-fable-5`, structured output), force-directed knowledge graph, server-side quotas | ✅ Built & verified (demo fallback until `ANTHROPIC_API_KEY` is set) |
 | **P3 — Social + premium** | Challenges, leaderboard, friend feed, wrapped story, Play Billing paywall | Planned |
 
 ## Architecture
@@ -70,3 +70,28 @@ the source of truth; dirty rows push as batched upserts, pulls are
 incremental on the server-set `server_updated_at` watermark, conflicts
 resolve row-level last-writer-wins on the client clock
 ([sync_engine.dart](lib/core/sync/sync_engine.dart)).
+
+### AI features (Phase 2)
+
+Edge Functions in `supabase/functions/`:
+
+- `ai-chat` — Library GPT: streaming SSE from `claude-haiku-4-5` with a
+  prompt-cached, pipe-delimited library context built server-side.
+  Quotas: 10 messages/day free, 200/day premium (`ai_usage` table).
+- `ai-analyze` — shelf analysis with `claude-fable-5` structured output
+  (reading profile, blind spots, read-next picks, theme edges that feed
+  the knowledge graph). Quotas: 1/month free, 8/month premium.
+
+```powershell
+supabase functions serve            # serves both functions locally
+# enable real Claude calls (local):
+#   create supabase/functions/.env containing ANTHROPIC_API_KEY=sk-ant-...
+#   then restart `supabase functions serve --env-file supabase/functions/.env`
+# cloud: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Without a key the functions return clearly-labelled demo responses so the
+whole flow stays testable. The knowledge graph
+([graph_physics.dart](lib/features/graph/graph_physics.dart)) renders genre
+clusters immediately and adds dashed cross-cluster "bridge" edges once an
+analysis has produced `theme_edges`; free tier shows the top 20 books.

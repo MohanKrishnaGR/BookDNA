@@ -563,7 +563,7 @@ class InsightsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
 
-            // AI CTA (Phase 2).
+            // AI analysis entry point.
             Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -571,8 +571,7 @@ class InsightsScreen extends ConsumerWidget {
               ),
               color: Colors.transparent,
               child: ListTile(
-                onTap: () => showToast(context,
-                    'AI analysis & Library GPT arrive in Phase 2 — formulas above are already live'),
+                onTap: () => context.push('/ai'),
                 leading: Icon(Icons.auto_awesome_rounded,
                     color: scheme.primary),
                 title: const Text('Go deeper with AI analysis'),
