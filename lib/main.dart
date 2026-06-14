@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'core/analytics/analytics.dart';
+import 'core/notifications/local_notifications.dart';
 import 'core/supabase/client.dart';
 
 Future<void> main() async {
@@ -38,6 +39,7 @@ Future<void> main() async {
     }
 
     await initSupabase();
+    await LocalNotifications.init();
     runApp(const ProviderScope(child: BookDnaApp()));
   }, (error, stack) {
     if (Analytics.instance.ready) {

@@ -81,6 +81,70 @@ class HapticsNotifier extends Notifier<bool> {
   }
 }
 
+/// Generic on/off preference backed by the Prefs table (key/value), reactive.
+class BoolPrefNotifier extends Notifier<bool> {
+  BoolPrefNotifier(this._key, this._fallback);
+  final String _key;
+  final bool _fallback;
+
+  @override
+  bool build() {
+    ref.watch(databaseProvider).watchPref(_key).listen((v) {
+      state = v == null ? _fallback : v == '1';
+    });
+    return _fallback;
+  }
+
+  void set(bool on) {
+    state = on;
+    ref.read(databaseProvider).setPref(_key, on ? '1' : '0');
+  }
+}
+
+/// Time-of-day preference stored as "H:M".
+class TimePrefNotifier extends Notifier<TimeOfDay> {
+  TimePrefNotifier(this._key, this._fallback);
+  final String _key;
+  final TimeOfDay _fallback;
+
+  @override
+  TimeOfDay build() {
+    ref.watch(databaseProvider).watchPref(_key).listen((v) {
+      state = _parse(v) ?? _fallback;
+    });
+    return _fallback;
+  }
+
+  void set(TimeOfDay t) {
+    state = t;
+    ref.read(databaseProvider).setPref(_key, '${t.hour}:${t.minute}');
+  }
+
+  static TimeOfDay? _parse(String? v) {
+    if (v == null) return null;
+    final parts = v.split(':');
+    if (parts.length != 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    return (h == null || m == null) ? null : TimeOfDay(hour: h, minute: m);
+  }
+}
+
+// Notification preferences — all default on; daily reminder defaults to 20:00.
+final notificationsEnabledProvider = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier('notificationsEnabled', true));
+final dailyReminderEnabledProvider = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier('notif_daily', true));
+final dailyReminderTimeProvider =
+    NotifierProvider<TimePrefNotifier, TimeOfDay>(
+        () => TimePrefNotifier('notif_daily_time', const TimeOfDay(hour: 20, minute: 0)));
+final streakRemindersProvider = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier('notif_streak', true));
+final finishRemindersProvider = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier('notif_finish', true));
+final lendRemindersProvider = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier('notif_lend', true));
+
 /// App phase gate: splash → onboarding → auth → app (prototype flow).
 final appPhaseProvider =
     NotifierProvider<AppPhaseNotifier, String?>(AppPhaseNotifier.new);

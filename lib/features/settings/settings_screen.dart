@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/notifications/notification_scheduler.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/client.dart';
 import '../../core/sync/sync_providers.dart';
@@ -60,9 +61,17 @@ class SettingsScreen extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final mode = ref.watch(themeModeProvider);
     final hapticsOn = ref.watch(hapticsEnabledProvider);
+    final notifOn = ref.watch(notificationsEnabledProvider);
+    final dailyOn = ref.watch(dailyReminderEnabledProvider);
+    final dailyTime = ref.watch(dailyReminderTimeProvider);
+    final streakOn = ref.watch(streakRemindersProvider);
+    final finishOn = ref.watch(finishRemindersProvider);
+    final lendOn = ref.watch(lendRemindersProvider);
     final books = ref.watch(booksProvider).value ?? [];
     final sync = ref.watch(syncControllerProvider);
     final user = ref.watch(currentUserProvider).value;
+
+    void reschedule() => ref.read(notificationSchedulerProvider).refresh();
 
     Widget header(String label) => Padding(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 6),
@@ -121,6 +130,83 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
           ),
+          header('NOTIFICATIONS'),
+          row(
+            Icons.notifications_active_rounded,
+            'Notifications',
+            'Reminders, streak saves and nudges',
+            trailing: Switch(
+              value: notifOn,
+              onChanged: (v) {
+                ref.read(notificationsEnabledProvider.notifier).set(v);
+                reschedule();
+              },
+            ),
+          ),
+          if (notifOn) ...[
+            row(
+              Icons.alarm_rounded,
+              'Daily reading reminder',
+              dailyOn ? 'Every day at ${dailyTime.format(context)}' : 'Off',
+              trailing: Switch(
+                value: dailyOn,
+                onChanged: (v) {
+                  ref.read(dailyReminderEnabledProvider.notifier).set(v);
+                  reschedule();
+                },
+              ),
+            ),
+            if (dailyOn)
+              row(
+                Icons.schedule_rounded,
+                'Reminder time',
+                dailyTime.format(context),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                      context: context, initialTime: dailyTime);
+                  if (picked != null) {
+                    ref.read(dailyReminderTimeProvider.notifier).set(picked);
+                    reschedule();
+                  }
+                },
+              ),
+            row(
+              Icons.local_fire_department_rounded,
+              'Streak saver',
+              "Evening nudge if you haven't read",
+              trailing: Switch(
+                value: streakOn,
+                onChanged: (v) {
+                  ref.read(streakRemindersProvider.notifier).set(v);
+                  reschedule();
+                },
+              ),
+            ),
+            row(
+              Icons.flag_circle_rounded,
+              'Finish-line nudges',
+              "When you're close to finishing a book",
+              trailing: Switch(
+                value: finishOn,
+                onChanged: (v) {
+                  ref.read(finishRemindersProvider.notifier).set(v);
+                  reschedule();
+                },
+              ),
+            ),
+            row(
+              Icons.swap_horiz_rounded,
+              'Lend reminders',
+              'When a lent book is due back',
+              trailing: Switch(
+                value: lendOn,
+                onChanged: (v) {
+                  ref.read(lendRemindersProvider.notifier).set(v);
+                  reschedule();
+                },
+              ),
+            ),
+          ],
           header('DATA'),
           row(
             Icons.download_rounded,
