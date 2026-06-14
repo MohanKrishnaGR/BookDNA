@@ -1,7 +1,8 @@
 // Library GPT — streaming chat over the caller's own bookshelf.
-// claude-haiku-4-5, SSE passthrough, prompt-cached library context,
-// daily quotas. Falls back to a clearly-labelled demo reply when
-// ANTHROPIC_API_KEY is not configured (keeps dev/E2E unblocked).
+// Google Gemini (gemini-2.5-flash, free tier). Gemini's native SSE is
+// translated into the Anthropic-style {content_block_delta} envelope the
+// Flutter client already parses, so the app needs no changes.
+// Falls back to a clearly-labelled demo reply when GEMINI_API_KEY is unset.
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import {
@@ -13,7 +14,9 @@ import {
 } from "../_shared/auth_quota.ts";
 import { fetchBooks, renderLibraryContext } from "../_shared/context.ts";
 
-const MODEL = "claude-haiku-4-5";
+const MODEL = "gemini-2.5-flash";
+const ENDPOINT =
+  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse`;
 const MAX_TURNS = 20;
 const MAX_CHARS_PER_TURN = 1000;
 
@@ -81,40 +84,38 @@ Deno.serve(async (req) => {
       ownerName: (user.user_metadata?.full_name as string) ?? undefined,
     });
 
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       return demoStream(books.length);
     }
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const contents = turns.map((t) => ({
+      role: t.role === "assistant" ? "model" : "user",
+      parts: [{ text: t.content }],
+    }));
+
+    const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        stream: true,
-        system: [
-          {
-            type: "text",
-            text: `${PERSONA}\n\n${context}`,
-            cache_control: { type: "ephemeral" },
-          },
-        ],
-        messages: turns,
+        system_instruction: { parts: [{ text: `${PERSONA}\n\n${context}` }] },
+        contents,
+        generationConfig: {
+          maxOutputTokens: 1024,
+          temperature: 0.7,
+          // Disable 2.5-flash thinking: faster replies, no thinking-token spend.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
     });
 
-    if (!anthropicRes.ok || !anthropicRes.body) {
-      const detail = await anthropicRes.text().catch(() => "");
-      console.error("anthropic error", anthropicRes.status, detail);
+    if (!res.ok || !res.body) {
+      const detail = await res.text().catch(() => "");
+      console.error("gemini error", res.status, detail);
       return jsonResponse(
         {
           error: "upstream_error",
-          message: anthropicRes.status === 429 || anthropicRes.status === 529
+          message: res.status === 429
             ? "The assistant is busy right now — try again in a moment."
             : "The assistant hit a snag — try again.",
         },
@@ -122,32 +123,70 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Pipe the SSE bytes through unchanged while scanning message_delta
-    // for usage, logged after the stream finishes.
-    let tail = "";
+    // Translate Gemini SSE → the client's {content_block_delta} envelope.
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+    let buffer = "";
     let tokensIn = 0;
     let tokensOut = 0;
-    const decoder = new TextDecoder();
-    const usageScanner = new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-        tail = (tail + decoder.decode(chunk, { stream: true })).slice(-8192);
-        const inMatch = tail.match(/"input_tokens"\s*:\s*(\d+)/g)?.pop();
-        const outMatch = tail.match(/"output_tokens"\s*:\s*(\d+)/g)?.pop();
-        if (inMatch) tokensIn = parseInt(inMatch.match(/\d+/)![0]);
-        if (outMatch) tokensOut = parseInt(outMatch.match(/\d+/)![0]);
-      },
-      flush() {
-        if (tokensIn || tokensOut) {
-          // Fire-and-forget: usage logging must not delay the response end.
-          logTokens(admin, user.id, tokensIn, tokensOut).catch((e) =>
-            console.error("usage log failed", e)
+
+    const stream = new ReadableStream({
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.enqueue(
+            encoder.encode(
+              `event: message_stop\ndata: {"type":"message_stop"}\n\n`,
+            ),
           );
+          if (tokensIn || tokensOut) {
+            await logTokens(admin, user.id, tokensIn, tokensOut);
+          }
+          controller.close();
+          return;
         }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t.startsWith("data:")) continue;
+          const payload = t.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const obj = JSON.parse(payload);
+            const text = (obj?.candidates?.[0]?.content?.parts ?? [])
+              .map((p: { text?: string }) => p.text ?? "")
+              .join("");
+            if (text) {
+              controller.enqueue(
+                encoder.encode(
+                  `event: content_block_delta\ndata: ${
+                    JSON.stringify({
+                      type: "content_block_delta",
+                      delta: { type: "text_delta", text },
+                    })
+                  }\n\n`,
+                ),
+              );
+            }
+            const um = obj?.usageMetadata;
+            if (um) {
+              tokensIn = um.promptTokenCount ?? tokensIn;
+              tokensOut = um.candidatesTokenCount ?? tokensOut;
+            }
+          } catch {
+            // partial / non-JSON keepalive line — ignore
+          }
+        }
+      },
+      cancel() {
+        reader.cancel();
       },
     });
 
-    return new Response(anthropicRes.body.pipeThrough(usageScanner), {
+    return new Response(stream, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
@@ -160,11 +199,11 @@ Deno.serve(async (req) => {
   }
 });
 
-/// Demo mode: no ANTHROPIC_API_KEY configured. Emits a short, clearly
-/// labelled reply in the same SSE shape the client expects.
+/// Demo mode: no GEMINI_API_KEY configured. Emits a short, clearly labelled
+/// reply in the same SSE shape the client expects.
 function demoStream(bookCount: number): Response {
   const text =
-    `(Demo reply — set ANTHROPIC_API_KEY on the server for real answers.) ` +
+    `(Demo reply — set GEMINI_API_KEY on the server for real answers.) ` +
     `I can see all ${bookCount} books on your shelf and once connected I'll ` +
     `answer questions about them, pick next reads, and find blind spots.`;
   const events = [

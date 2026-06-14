@@ -1,6 +1,7 @@
-// Deep shelf analysis — claude-fable-5 with structured (JSON schema) output.
-// Monthly quota; result persisted to ai_analyses and returned to the client.
-// Falls back to a deterministic demo result when ANTHROPIC_API_KEY is unset.
+// Deep shelf analysis — Google Gemini (gemini-2.5-flash) with structured
+// JSON output via responseSchema. Monthly quota; result persisted to
+// ai_analyses and returned to the client. Falls back to a deterministic
+// demo result when GEMINI_API_KEY is unset.
 
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import {
@@ -16,60 +17,51 @@ import {
   renderLibraryContext,
 } from "../_shared/context.ts";
 
-const MODEL = "claude-fable-5";
+const MODEL = "gemini-2.5-flash";
+const ENDPOINT =
+  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
+// Gemini Schema dialect: uppercase types, no additionalProperties / $ref.
+// theme_edges modelled as {a,b} objects (nested string-arrays are flaky in
+// the schema dialect); converted to [a,b] pairs before returning.
 const RESULT_SCHEMA = {
-  type: "object",
+  type: "OBJECT",
   properties: {
-    reading_profile: {
-      type: "string",
-      description:
-        "2-3 sentence portrait of this reader inferred from the shelf",
-    },
+    reading_profile: { type: "STRING" },
     personality: {
-      type: "object",
+      type: "OBJECT",
       properties: {
-        archetype: {
-          type: "string",
-          description: 'Short evocative label, e.g. "The Builder"',
-        },
-        traits: { type: "array", items: { type: "string" } },
+        archetype: { type: "STRING" },
+        traits: { type: "ARRAY", items: { type: "STRING" } },
       },
       required: ["archetype", "traits"],
-      additionalProperties: false,
     },
     blind_spots: {
-      type: "array",
+      type: "ARRAY",
       items: {
-        type: "object",
-        properties: {
-          area: { type: "string" },
-          why: { type: "string" },
-        },
+        type: "OBJECT",
+        properties: { area: { type: "STRING" }, why: { type: "STRING" } },
         required: ["area", "why"],
-        additionalProperties: false,
       },
     },
     read_next: {
-      type: "array",
+      type: "ARRAY",
       items: {
-        type: "object",
+        type: "OBJECT",
         properties: {
-          book_id: {
-            type: "string",
-            description: "MUST be an id from the library list (short form)",
-          },
-          reason: { type: "string" },
+          book_id: { type: "STRING" },
+          reason: { type: "STRING" },
         },
         required: ["book_id", "reason"],
-        additionalProperties: false,
       },
     },
     theme_edges: {
-      type: "array",
-      description:
-        "Pairs of book ids (short form) that share a strong cross-book theme",
-      items: { type: "array", items: { type: "string" } },
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: { a: { type: "STRING" }, b: { type: "STRING" } },
+        required: ["a", "b"],
+      },
     },
   },
   required: [
@@ -79,7 +71,6 @@ const RESULT_SCHEMA = {
     "read_next",
     "theme_edges",
   ],
-  additionalProperties: false,
 };
 
 Deno.serve(async (req) => {
@@ -117,7 +108,7 @@ Deno.serve(async (req) => {
     }
     const context = renderLibraryContext(books, { maxBooks: 1000 });
 
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
     let result: Record<string, unknown>;
     let model = MODEL;
 
@@ -125,44 +116,43 @@ Deno.serve(async (req) => {
       result = demoResult(books);
       model = "demo";
     } else {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const prompt =
+        `You are BookDNA's shelf analyst. Study the library below and produce ` +
+        `an honest, specific analysis. Constraints: exactly 3 blind_spots; ` +
+        `exactly 3 read_next picks whose book_id values come from the library ` +
+        `list and whose status is u (unread); 5-15 theme_edges pairing books ` +
+        `(by short id) that share a meaningful theme, preferring pairs that ` +
+        `cross genres.\n\n${context}`;
+
+      const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
+          "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 4000,
-          thinking: { type: "adaptive" },
-          system: [
-            {
-              type: "text",
-              text:
-                `You are BookDNA's shelf analyst. Study the library below and ` +
-                `produce an honest, specific analysis. Constraints: exactly 3 ` +
-                `blind_spots; exactly 3 read_next picks whose book_id values ` +
-                `come from the library list and whose status is u (unread); ` +
-                `5-15 theme_edges pairing books that share a meaningful theme, ` +
-                `preferring pairs that cross genres.\n\n${context}`,
-              cache_control: { type: "ephemeral" },
-            },
+          system_instruction: { parts: [{ text: prompt }] },
+          contents: [
+            { role: "user", parts: [{ text: "Analyze my library." }] },
           ],
-          messages: [
-            { role: "user", content: "Analyze my library." },
-          ],
-          output_config: { format: { type: "json_schema", schema: RESULT_SCHEMA } },
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: RESULT_SCHEMA,
+            maxOutputTokens: 8192,
+            // gemini-2.5-flash "thinks" by default and thinking tokens count
+            // against maxOutputTokens — disable so the JSON body fits.
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       });
 
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
-        console.error("anthropic error", res.status, detail);
+        console.error("gemini error", res.status, detail);
         return jsonResponse(
           {
             error: "upstream_error",
-            message: res.status === 429 || res.status === 529
+            message: res.status === 429
               ? "The analyst is busy — try again in a few minutes."
               : "Analysis failed — try again.",
           },
@@ -171,20 +161,44 @@ Deno.serve(async (req) => {
       }
 
       const payload = await res.json();
-      const text = (payload.content as Array<{ type: string; text?: string }>)
-        .find((b) => b.type === "text")?.text;
+      const finishReason = payload?.candidates?.[0]?.finishReason;
+      const text = (payload?.candidates?.[0]?.content?.parts ?? [])
+        .map((p: { text?: string }) => p.text ?? "")
+        .join("");
       if (!text) {
-        return jsonResponse({ error: "empty_result" }, 502);
+        console.error("empty result", finishReason, JSON.stringify(payload));
+        return jsonResponse(
+          { error: "empty_result", finishReason },
+          502,
+        );
       }
-      result = JSON.parse(text);
+      let raw: Record<string, unknown>;
+      try {
+        raw = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("parse failed", finishReason, text.slice(0, 200));
+        return jsonResponse(
+          { error: "parse_failed", finishReason, sample: text.slice(0, 200) },
+          502,
+        );
+      }
+      result = {
+        ...raw,
+        // {a,b} objects → [a,b] pairs the client + graph expect.
+        theme_edges: (raw.theme_edges ?? [])
+          .map((e: { a?: string; b?: string }) => [e.a, e.b])
+          .filter((p: unknown[]) => p[0] && p[1]),
+      };
 
-      const usage = payload.usage ?? {};
-      logTokens(
-        admin,
-        user.id,
-        usage.input_tokens ?? 0,
-        usage.output_tokens ?? 0,
-      ).catch((e) => console.error("usage log failed", e));
+      const um = payload?.usageMetadata;
+      if (um) {
+        await logTokens(
+          admin,
+          user.id,
+          um.promptTokenCount ?? 0,
+          um.candidatesTokenCount ?? 0,
+        );
+      }
     }
 
     const { error: insertError } = await admin.from("ai_analyses").insert({
@@ -201,9 +215,9 @@ Deno.serve(async (req) => {
   }
 });
 
-/// Deterministic stand-in used when no API key is configured, built from the
-/// real library so the downstream UI (analysis cards, knowledge graph) is
-/// fully exercisable. Clearly labelled via model="demo".
+/// Deterministic stand-in when no API key is configured, built from the real
+/// library so the downstream UI (analysis cards, knowledge graph) is fully
+/// exercisable. Labelled via model="demo".
 function demoResult(books: BookRow[]): Record<string, unknown> {
   const sid = (b: BookRow) => b.id.slice(0, 8);
   const byGenre = new Map<string, BookRow[]>();
@@ -215,7 +229,6 @@ function demoResult(books: BookRow[]): Record<string, unknown> {
   );
   const unread = books.filter((b) => b.status === "unread");
 
-  // Theme edges: same-author pairs, then a few cross-genre year-neighbours.
   const edges: string[][] = [];
   const byAuthor = new Map<string, BookRow[]>();
   for (const b of books) {
@@ -238,7 +251,7 @@ function demoResult(books: BookRow[]): Record<string, unknown> {
   return {
     demo: true,
     reading_profile:
-      `(Demo analysis — set ANTHROPIC_API_KEY for the real one.) A ` +
+      `(Demo analysis — set GEMINI_API_KEY for the real one.) A ` +
       `${topGenres[0]?.[0] ?? "nonfiction"}-leaning shelf of ${books.length} ` +
       `books with a healthy unread frontier of ${unread.length}.`,
     personality: {

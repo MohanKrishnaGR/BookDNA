@@ -17,7 +17,7 @@ phases lives in the repo owner's plan file; phase status below.
 |---|---|---|
 | **P1 — Personal core** | Library (4 views), barcode scanner + ISBN import, book details (notes/rating/lend/share), reading tracker (sessions, streaks, heatmap), insights (DNA donut, personality, evolution, radar, worth), home dashboard, goal editor, settings, CSV export | ✅ Built (offline-first, local Drift DB, seeded demo library) |
 | **M1.6 — Auth + sync** | Supabase auth (email + anonymous guest, guest→account upgrade), offline-first LWW sync engine (push/pull/watermarks/tombstones), RLS schema, badges + achievements | ✅ Built & verified against local Supabase (`supabase start`) |
-| **P2 — AI** | Library GPT chat (streaming, `claude-haiku-4-5`), shelf analysis (`claude-fable-5`, structured output), force-directed knowledge graph, server-side quotas | ✅ Built & verified (demo fallback until `ANTHROPIC_API_KEY` is set) |
+| **P2 — AI** | Library GPT chat (streaming) + shelf analysis (structured output) via **Google Gemini `gemini-2.5-flash`** (free tier), force-directed knowledge graph, server-side quotas | ✅ Built & verified live (demo fallback until `GEMINI_API_KEY` is set) |
 | **P3 — Social + premium** | Challenges (server membership, locally computed progress), weekly leaderboard RPC scoped to your circle, monthly Wrapped story, paywall + server-granted 7-day trial entitlement | ✅ Built & verified (Play Billing wiring awaits a Play Console; trial is live) |
 
 ## Architecture
@@ -75,19 +75,25 @@ resolve row-level last-writer-wins on the client clock
 
 Edge Functions in `supabase/functions/`:
 
-- `ai-chat` — Library GPT: streaming SSE from `claude-haiku-4-5` with a
-  prompt-cached, pipe-delimited library context built server-side.
-  Quotas: 10 messages/day free, 200/day premium (`ai_usage` table).
-- `ai-analyze` — shelf analysis with `claude-fable-5` structured output
-  (reading profile, blind spots, read-next picks, theme edges that feed
-  the knowledge graph). Quotas: 1/month free, 8/month premium.
+Provider: **Google Gemini (`gemini-2.5-flash`, free tier)** via the
+Generative Language API. Gemini's native SSE is translated server-side into
+the client's existing delta envelope, so the Flutter app is provider-agnostic.
+`thinkingConfig.thinkingBudget: 0` is set (2.5-flash thinks by default and
+thinking tokens otherwise consume the output budget).
+
+- `ai-chat` — Library GPT: streaming chat with a pipe-delimited library
+  context built server-side. Quotas: 10 messages/day free, 200/day premium
+  (`ai_usage` table).
+- `ai-analyze` — shelf analysis via Gemini structured output (`responseSchema`)
+  → reading profile, blind spots, read-next picks, and theme edges that feed
+  the knowledge graph. Quotas: 1/month free, 8/month premium.
 
 ```powershell
-supabase functions serve            # serves both functions locally
-# enable real Claude calls (local):
-#   create supabase/functions/.env containing ANTHROPIC_API_KEY=sk-ant-...
-#   then restart `supabase functions serve --env-file supabase/functions/.env`
-# cloud: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# cloud: set the key as a function secret, then deploy
+supabase secrets set GEMINI_API_KEY=<AI Studio key> --project-ref <ref>
+supabase functions deploy ai-chat ai-analyze --project-ref <ref> --no-verify-jwt
+# local: put GEMINI_API_KEY=... in supabase/functions/.env and
+#   supabase functions serve --env-file supabase/functions/.env
 ```
 
 Without a key the functions return clearly-labelled demo responses so the

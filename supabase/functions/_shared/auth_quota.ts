@@ -80,15 +80,17 @@ export async function consumeAnalyzeQuota(
   return { ok: true, used: (runs ?? 0) + 1, limit };
 }
 
-export function logTokens(
+export async function logTokens(
   admin: SupabaseClient,
   userId: string,
   tokensIn: number,
   tokensOut: number,
-): Promise<unknown> {
-  return admin.rpc("bump_ai_usage", {
+): Promise<void> {
+  // The query builder is a thenable without .catch — await and swallow here.
+  const { error } = await admin.rpc("bump_ai_usage", {
     p_user_id: userId,
     p_tokens_in: tokensIn,
     p_tokens_out: tokensOut,
   });
+  if (error) console.error("usage log failed", error);
 }
