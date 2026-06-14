@@ -25,6 +25,75 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
+/// Display identity derived from the signed-in Supabase user — used for the
+/// home greeting and profile header. Falls back gracefully for guests and
+/// local (no-backend) mode, so nothing is ever hard-coded to one person.
+class UserProfile {
+  const UserProfile({
+    required this.name,
+    required this.initials,
+    required this.isGuest,
+    this.email,
+    this.photoUrl,
+  });
+
+  final String name;
+  final String initials;
+  final bool isGuest;
+  final String? email;
+  final String? photoUrl;
+
+  /// First name only, for greetings.
+  String get firstName =>
+      name.split(RegExp(r'\s+')).firstWhere((p) => p.isNotEmpty,
+          orElse: () => name);
+}
+
+String _initialsFrom(String name) {
+  final parts =
+      name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return 'R';
+  if (parts.length == 1) {
+    final p = parts.first;
+    return (p.length >= 2 ? p.substring(0, 2) : p).toUpperCase();
+  }
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
+UserProfile profileFromUser(User? user) {
+  if (user == null) {
+    return const UserProfile(name: 'Reader', initials: 'R', isGuest: false);
+  }
+  if (user.isAnonymous) {
+    return const UserProfile(name: 'Guest', initials: 'G', isGuest: true);
+  }
+  final meta = user.userMetadata ?? const <String, dynamic>{};
+  String? metaStr(String key) {
+    final v = meta[key];
+    return v is String && v.trim().isNotEmpty ? v.trim() : null;
+  }
+
+  final email = user.email;
+  final name = metaStr('full_name') ??
+      metaStr('name') ??
+      metaStr('user_name') ??
+      ((email != null && email.contains('@')) ? email.split('@').first : null) ??
+      'Reader';
+  return UserProfile(
+    name: name,
+    initials: _initialsFrom(name),
+    isGuest: false,
+    email: email,
+    photoUrl: metaStr('avatar_url') ?? metaStr('picture'),
+  );
+}
+
+/// The signed-in user's display identity (reactive to auth changes).
+final userProfileProvider = Provider<UserProfile>((ref) {
+  final user = ref.watch(currentUserProvider).value;
+  return profileFromUser(user);
+});
+
 class AuthController {
   /// Record a successful sign-in for analytics, tagging the auth method and
   /// binding the Supabase user id so events can be attributed per user.

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers.dart';
 import '../supabase/client.dart';
@@ -42,14 +43,35 @@ class SyncController extends Notifier<SyncStatus> {
     final db = ref.read(databaseProvider);
 
     _authSub = supabase.auth.onAuthStateChange.listen((change) async {
+      // Explicit sign-out → wipe local data so the next account starts clean
+      // and re-pulls its own library from the cloud (no cross-account bleed).
+      if (change.event == AuthChangeEvent.signedOut) {
+        await db.clearUserData();
+        return;
+      }
       final user = change.session?.user;
       if (user == null) return;
-      // First sign-in for this identity on this device: adopt local data.
-      final adoptedFor = await db.getPref('syncUserId');
-      if (adoptedFor != user.id) {
-        await engine.adoptLocalData();
-        await db.setPref('syncUserId', user.id);
+
+      // Local data is owned by exactly one identity at a time.
+      final owner = await db.getPref('localDataOwner');
+      if (owner != user.id) {
+        if (owner != null && owner.isNotEmpty) {
+          final prevWasGuest =
+              (await db.getPref('localDataOwnerIsGuest')) == '1';
+          if (prevWasGuest) {
+            // Guest → account upgrade: keep the guest's library, push it up.
+            await engine.adoptLocalData();
+          } else {
+            // A different real account on this device: drop stale local data
+            // (it's safe in its own cloud account) and pull this account's.
+            await db.clearUserData();
+          }
+        }
+        // owner == null/empty → clean device: just claim it and pull.
+        await db.setPref('localDataOwner', user.id);
       }
+      await db.setPref(
+          'localDataOwnerIsGuest', user.isAnonymous ? '1' : '0');
       unawaited(syncNow());
     });
 

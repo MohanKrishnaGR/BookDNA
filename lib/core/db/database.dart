@@ -25,11 +25,14 @@ DateTime localDate([DateTime? of]) {
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
-      : seedOnCreate = true,
+      : seedOnCreate = false,
         super(driftDatabase(name: 'bookdna'));
 
   AppDatabase.forTesting(super.e) : seedOnCreate = false;
 
+  /// Whether to seed the demo persona on first launch. Off by default: real
+  /// accounts start empty and pull their own data from the cloud (the demo
+  /// account's library lives server-side). Kept as a hook for dev/demo builds.
   final bool seedOnCreate;
 
   @override
@@ -241,4 +244,30 @@ class AppDatabase extends _$AppDatabase {
         key: key,
         value: value,
       ));
+
+  // ──────────────────────── Account reset ──────────────────────
+
+  /// Wipe all on-device user content — used on sign-out / account switch so
+  /// the next account starts clean and re-pulls its own data from the cloud.
+  /// Preserves app-level prefs (theme, onboarding phase); clears sync state
+  /// and the data-ownership markers. Children are deleted before parents to
+  /// satisfy foreign keys.
+  Future<void> clearUserData() async {
+    await transaction(() async {
+      await delete(notes).go();
+      await delete(readingSessions).go();
+      await delete(lends).go();
+      await delete(activities).go();
+      await delete(goals).go();
+      await delete(books).go();
+      await delete(syncMeta).go();
+      await (delete(prefs)
+            ..where((p) => p.key.isIn(const [
+                  'localDataOwner',
+                  'localDataOwnerIsGuest',
+                  'syncUserId',
+                ])))
+          .go();
+    });
+  }
 }

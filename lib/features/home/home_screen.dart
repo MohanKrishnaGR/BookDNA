@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/common.dart';
 import '../../widgets/ring.dart';
+import '../auth/auth_controller.dart';
 import '../insights/logic/formulas.dart';
 import '../profile/goal_sheet.dart';
 
@@ -31,6 +32,7 @@ class HomeScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final now = DateTime.now();
+    final profile = ref.watch(userProfileProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -39,13 +41,17 @@ class HomeScreen extends ConsumerWidget {
           children: [
             // Header.
             Row(children: [
-              _Avatar(onTap: () => context.go('/profile')),
+              _Avatar(
+                onTap: () => context.go('/profile'),
+                initials: profile.initials,
+                photoUrl: profile.photoUrl,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${greetingForHour(now.hour)}, Mohan',
+                    Text('${greetingForHour(now.hour)}, ${profile.firstName}',
                         style: theme.textTheme.titleMedium),
                     Text(fullDate(now),
                         style: theme.textTheme.bodySmall!
@@ -178,19 +184,25 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.onTap});
+  const _Avatar({this.onTap, required this.initials, this.photoUrl});
   final VoidCallback? onTap;
+  final String initials;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
     final accent = accentFor(0, Theme.of(context).brightness);
+    final hasPhoto = photoUrl != null && photoUrl!.isNotEmpty;
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
       child: CircleAvatar(
         radius: 22,
         backgroundColor: accent.container,
-        child: Text('MG',
+        // Network photo (Google) when available; initials are the fallback
+        // shown underneath if the image is missing or fails to load.
+        foregroundImage: hasPhoto ? NetworkImage(photoUrl!) : null,
+        child: Text(initials,
             style: TextStyle(
                 color: accent.onContainer, fontWeight: FontWeight.w700)),
       ),

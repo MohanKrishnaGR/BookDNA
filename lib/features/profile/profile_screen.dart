@@ -8,6 +8,7 @@ import '../../app/theme/book_accent.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
 import '../../widgets/ring.dart';
+import '../auth/auth_controller.dart';
 import '../insights/logic/formulas.dart';
 import '../insights/logic/personality.dart';
 import '../premium/entitlement.dart';
@@ -57,6 +58,8 @@ class ProfileScreen extends ConsumerWidget {
             .length;
     final premium =
         ref.watch(premiumProvider).value ?? const PremiumState();
+    final profile = ref.watch(userProfileProvider);
+    final hasPhoto = profile.photoUrl != null && profile.photoUrl!.isNotEmpty;
 
     return Scaffold(
       body: SafeArea(
@@ -68,12 +71,18 @@ class ProfileScreen extends ConsumerWidget {
                 CircleAvatar(
                   radius: 42,
                   backgroundColor: accent.container,
-                  child: Text('MG',
+                  foregroundImage:
+                      hasPhoto ? NetworkImage(profile.photoUrl!) : null,
+                  child: Text(profile.initials,
                       style: theme.textTheme.headlineSmall!
                           .copyWith(color: accent.onContainer)),
                 ),
                 const SizedBox(height: 12),
-                Text('Mohan G R', style: theme.textTheme.headlineSmall),
+                Text(profile.name, style: theme.textTheme.headlineSmall),
+                if (profile.email != null)
+                  Text(profile.email!,
+                      style: theme.textTheme.bodySmall!
+                          .copyWith(color: scheme.onSurfaceVariant)),
                 Text('Level $level · ${personality.archetype}',
                     style: theme.textTheme.bodyMedium!
                         .copyWith(color: scheme.onSurfaceVariant)),

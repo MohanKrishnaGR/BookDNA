@@ -181,7 +181,9 @@ class SettingsScreen extends ConsumerWidget {
                   }
                   await ref.read(authControllerProvider).signOut();
                   if (context.mounted) {
-                    showToast(context, 'Signed out — library stays on device');
+                    showToast(context,
+                        'Signed out — local data cleared (safe in the cloud)');
+                    context.go('/auth');
                   }
                 },
                 child: Text(user.isAnonymous ? 'Upgrade' : 'Sign out'),
