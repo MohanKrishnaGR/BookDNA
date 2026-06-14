@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/db/database.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
@@ -277,6 +278,14 @@ class TrackerScreen extends ConsumerWidget {
                     );
                     await db.logActivity('auto_stories',
                         'Read $pages pages of ${book.title}');
+                    Analytics.instance.log('reading_session_logged', {
+                      'pages': pages,
+                      'minutes': minutes,
+                    });
+                    if (finished) {
+                      Analytics.instance
+                          .log('book_finished', {'genre': book.genre});
+                    }
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
                     if (context.mounted) {
                       showToast(

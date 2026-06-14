@@ -5,6 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase Analytics + Crashlytics activate only once google-services.json is
+// present in this directory. Until then the app builds and runs normally with
+// telemetry disabled (Firebase.initializeApp() in main.dart fails gracefully).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 android {
     namespace = "com.bookdna.bookdna"
     compileSdk = flutter.compileSdkVersion

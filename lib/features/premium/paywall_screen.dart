@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../widgets/common.dart';
 import 'entitlement.dart';
 
@@ -36,6 +37,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     try {
       final next =
           await ref.read(premiumProvider.notifier).startTrial();
+      Analytics.instance.log('trial_started', {'plan': _yearly ? 'yearly' : 'monthly'});
       if (!mounted) return;
       showToast(context,
           'Trial started — Premium until ${next.until!.day}/${next.until!.month}');

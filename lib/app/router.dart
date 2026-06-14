@@ -1,6 +1,8 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/analytics/analytics.dart';
 import '../features/ai/analysis_screen.dart';
 import '../features/ai/chat_screen.dart';
 import '../features/auth/auth_screen.dart';
@@ -27,6 +29,11 @@ import 'shell.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
+  // Automatic screen_view analytics — only attached when Firebase is live.
+  observers: [
+    if (Analytics.instance.ready)
+      FirebaseAnalyticsObserver(analytics: Analytics.instance.firebase!),
+  ],
   routes: [
     GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),

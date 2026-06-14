@@ -64,6 +64,9 @@ dependencies:
   material_color_utilities: any
   path_provider: ^2.1.5
   google_sign_in: 6.2.2
+  firebase_core: ^4.10.0
+  firebase_crashlytics: ^5.2.3
+  firebase_analytics: ^12.4.2
 
 dev_dependencies:
   flutter_test:

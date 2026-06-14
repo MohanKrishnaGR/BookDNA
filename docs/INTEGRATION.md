@@ -114,54 +114,60 @@ Supabase → Authentication → **Users** with provider `google`.
 
 ---
 
-## Track 3 — Crashlytics (console.firebase.google.com)
+## Track 3 — Firebase Analytics + Crashlytics (console.firebase.google.com)
 
-Adds Firebase **only as a crash SDK** — your database stays on Supabase. No
-FlutterFire CLI needed if you do it via the console.
+Adds Firebase **only as a telemetry layer** (crash reporting + product
+analytics) — your database stays on Supabase.
 
-### 3.1 Firebase Console
-1. **Add project** → you can reuse the Google Cloud project from Track 2 → create.
+**Status:** all app code + Gradle wiring is already done and build-verified.
+Firebase is wired to **auto-activate** the moment `google-services.json` exists
+(`android/app/build.gradle.kts` applies the Google plugins only
+`if (file("google-services.json").exists())`, and `main.dart`'s
+`Firebase.initializeApp()` is wrapped in try/catch). Until the file is added the
+app builds and runs normally with telemetry off. **The only remaining work is
+the console step below to produce that file.**
+
+Already in the repo:
+- packages `firebase_core`, `firebase_analytics`, `firebase_crashlytics`
+- `lib/main.dart` — `runZonedGuarded` + `Firebase.initializeApp()` +
+  `FlutterError.onError` / `PlatformDispatcher.onError` → Crashlytics
+- `lib/core/analytics/analytics.dart` — safe no-op facade (`Analytics.instance`)
+- `lib/app/router.dart` — `FirebaseAnalyticsObserver` → automatic `screen_view`
+- custom events: `login{method}`, `book_added{genre,has_isbn}`,
+  `reading_session_logged{pages,minutes}`, `book_finished{genre}`,
+  `ai_analysis_run{is_demo}`, `trial_started{plan}`
+- Gradle plugins declared (`settings.gradle.kts`, `apply false`) + conditional
+  apply (`app/build.gradle.kts`)
+- `.gitignore` excludes `google-services.json`
+
+### 3.1 Firebase Console (the one manual step)
+1. **Add project** → reuse the Google Cloud project from Track 2 (so Analytics
+   shares the same GCP project) → create. Accept the Google Analytics step (it
+   creates/links a GA4 property — required for Analytics).
 2. On the project overview, click the **Android** icon ("Add app"):
    - **Android package name:** `com.bookdna.bookdna`
-   - nickname `BookDNA` · SHA-1 optional (not needed for Crashlytics) → Register.
+   - nickname `BookDNA` · SHA-1 optional (not needed for Crashlytics/Analytics;
+     add the debug SHA-1 if you later use Firebase Auth/Dynamic Links) → Register.
 3. **Download `google-services.json`** → place it at
-   `android/app/google-services.json` in the repo.
-4. Click through the remaining "Add SDK" steps in the console (you'll do the
-   Gradle edits below) → Continue to console.
-5. Left nav → **Release & Monitor → Crashlytics → Enable**.
+   `android/app/google-services.json`. (Or paste me its contents and I'll write
+   it.) That's it — the Gradle conditional picks it up automatically.
+4. You can skip the console's "add the SDK / Gradle" pages — those edits are
+   already in the repo. → Continue to console.
+5. Left nav → **Release & Monitor → Crashlytics** → it activates after the first
+   crash report is received (next step).
 
-### 3.2 Two Gradle edits
-- `android/settings.gradle.kts` → top-level `plugins { }` block, add:
-  ```kotlin
-  id("com.google.gms.google-services") version "4.4.2" apply false
-  id("com.google.firebase.crashlytics") version "3.0.2" apply false
-  ```
-- `android/app/build.gradle.kts` → its `plugins { }` block, add:
-  ```kotlin
-  id("com.google.gms.google-services")
-  id("com.google.firebase.crashlytics")
-  ```
-
-### 3.3 Packages + init
-- Add to `pubspec.yaml`: `firebase_core`, `firebase_crashlytics` → pub get.
-- In `lib/main.dart`, wrap `main()` in `runZonedGuarded`, call
-  `await Firebase.initializeApp()` (no options needed on Android —
-  `google-services.json` provides config) **before** `initSupabase()`, and route
-  errors in:
-  ```dart
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  PlatformDispatcher.instance.onError = (e, s) {
-    FirebaseCrashlytics.instance.recordError(e, s, fatal: true);
-    return true;
-  };
-  ```
-  *I can make this `main.dart` change for you.*
-
-### 3.4 Verify
-Add a throwaway `FirebaseCrashlytics.instance.crash();` behind a debug button,
-run a **release** build, trigger it, reopen the app (reports upload on next
-launch), and confirm it appears in Firebase Console → Crashlytics. Remove the
-trigger.
+### 3.2 Rebuild + verify
+```
+flutter run --dart-define-from-file=env.json   # or build apk
+```
+- **Analytics:** enable debug view —
+  `adb shell setprop debug.firebase.analytics.app com.bookdna.bookdna` — use the
+  app, then watch **Firebase Console → Analytics → DebugView** for `screen_view`,
+  `login`, `book_added`, etc. (Standard reports lag ~24h; DebugView is live.)
+- **Crashlytics:** temporarily add `FirebaseCrashlytics.instance.crash();` behind
+  a debug button (or `throw` in a handler), trigger it, relaunch the app (reports
+  upload on next launch), confirm it lands in **Console → Crashlytics**, then
+  remove the trigger.
 
 ---
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/supabase/client.dart';
 
 /// The Google Cloud **Web** OAuth client id — Supabase verifies the ID token
@@ -25,6 +26,13 @@ class AuthException implements Exception {
 }
 
 class AuthController {
+  /// Record a successful sign-in for analytics, tagging the auth method and
+  /// binding the Supabase user id so events can be attributed per user.
+  void _trackSignIn(String method) {
+    Analytics.instance.setUser(supabase.auth.currentUser?.id);
+    Analytics.instance.log('login', {'method': method});
+  }
+
   /// Guest path. With a backend this is a real anonymous Supabase user
   /// (so the library syncs and can later be upgraded); without one the app
   /// simply runs local-only.
@@ -33,6 +41,7 @@ class AuthController {
     if (supabase.auth.currentUser != null) return;
     try {
       await supabase.auth.signInAnonymously();
+      _trackSignIn('guest');
     } on AuthApiException {
       // Anonymous sign-ins disabled server-side → stay local-only.
     }
@@ -51,6 +60,7 @@ class AuthController {
       try {
         await supabase.auth
             .updateUser(UserAttributes(email: email, password: password));
+        _trackSignIn('email');
         return;
       } on AuthApiException {
         // Email already registered → fall through to a normal sign-in.
@@ -71,6 +81,7 @@ class AuthController {
         throw AuthException(e.message);
       }
     }
+    _trackSignIn('email');
   }
 
   /// Whether native Google sign-in is wired for this build.
@@ -101,6 +112,7 @@ class AuthController {
       idToken: idToken,
       accessToken: auth.accessToken,
     );
+    _trackSignIn('google');
     return true;
   }
 

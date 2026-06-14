@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/book_accent.dart';
+import '../../core/analytics/analytics.dart';
 import '../../core/db/database.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
@@ -51,6 +52,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     ));
     await db.logActivity(
         'barcode_scanner', 'Scanned ${_meta.title} into your library');
+    Analytics.instance.log('book_added', {
+      'genre': _meta.genre,
+      'has_isbn': _meta.isbn.isNotEmpty ? 1 : 0,
+    });
     if (!mounted) return;
     showToast(context, 'Added to your library');
     await Future.delayed(const Duration(milliseconds: 700));

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../widgets/book_cover.dart';
@@ -75,6 +76,9 @@ class _AiAnalysisScreenState extends ConsumerState<AiAnalysisScreen> {
 
     try {
       final result = await repo.analyze();
+      Analytics.instance.log('ai_analysis_run', {
+        'is_demo': result.isDemo ? 1 : 0,
+      });
       if (!mounted) return;
       setState(() {
         _analysis = result;
