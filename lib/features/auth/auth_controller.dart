@@ -1,7 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/client.dart';
+
+/// The Google Cloud **Web** OAuth client id — Supabase verifies the ID token
+/// against it. Injected at build time so nothing is hard-coded:
+///   --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com
+const String kGoogleWebClientId = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
 
 /// Current Supabase user (null when signed out or backend unconfigured).
 final currentUserProvider = StreamProvider<User?>((ref) {
@@ -65,6 +71,37 @@ class AuthController {
         throw AuthException(e.message);
       }
     }
+  }
+
+  /// Whether native Google sign-in is wired for this build.
+  bool get googleConfigured =>
+      supabaseConfigured && kGoogleWebClientId.isNotEmpty;
+
+  /// Native Google sign-in: gets a Google ID token and exchanges it with
+  /// Supabase. Returns false if the user cancels; throws [AuthException] on
+  /// a real failure. Guest data is preserved — onAuthStateChange triggers
+  /// the sync engine's adopt-and-push under the new Google user.
+  Future<bool> signInWithGoogle() async {
+    if (!googleConfigured) {
+      throw AuthException(
+          "Google sign-in isn't configured yet — use email for now.");
+    }
+    final googleSignIn = GoogleSignIn(serverClientId: kGoogleWebClientId);
+    // Clear any cached Google session so the account picker always appears.
+    await googleSignIn.signOut();
+    final account = await googleSignIn.signIn();
+    if (account == null) return false; // user dismissed the picker
+    final auth = await account.authentication;
+    final idToken = auth.idToken;
+    if (idToken == null) {
+      throw AuthException('Google did not return an ID token — try again.');
+    }
+    await supabase.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+      accessToken: auth.accessToken,
+    );
+    return true;
   }
 
   Future<void> signOut() async {

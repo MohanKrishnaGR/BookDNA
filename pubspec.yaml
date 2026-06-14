@@ -50,6 +50,7 @@ dependencies:
   csv: ^8.0.0
   material_color_utilities: any
   path_provider: ^2.1.5
+  google_sign_in: 6.2.2
 
 dev_dependencies:
   flutter_test:

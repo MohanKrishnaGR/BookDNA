@@ -62,6 +62,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  Future<void> _google() async {
+    setState(() => _busy = true);
+    try {
+      final ok = await ref.read(authControllerProvider).signInWithGoogle();
+      if (!mounted) return;
+      if (ok) _enterApp();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      showToast(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      showToast(context, 'Google sign-in failed — try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<String?> _askPassword(String email) {
     return showModalBottomSheet<String>(
       context: context,
@@ -153,10 +170,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 _OAuthButton(
                   glyph: 'G',
                   label: 'Continue with Google',
-                  onTap: () => showToast(
-                    context,
-                    'Google sign-in activates once OAuth keys are configured — use email for now',
-                  ),
+                  onTap: _busy ? null : _google,
                 ),
                 const SizedBox(height: 10),
                 _OAuthButton(
