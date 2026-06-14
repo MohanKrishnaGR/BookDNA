@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/client.dart';
 import '../../widgets/common.dart';
@@ -35,6 +36,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() => _busy = true);
     await ref.read(authControllerProvider).continueAsGuest();
     if (!mounted) return;
+    Haptics.tap();
     _enterApp();
   }
 
@@ -50,12 +52,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       await ref.read(authControllerProvider).signInWithEmail(email, password);
       if (!mounted) return;
+      Haptics.success();
       _enterApp();
     } on AuthException catch (e) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, e.message);
     } catch (_) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, 'Sign-in failed — check your connection.');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -67,12 +72,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     try {
       final ok = await ref.read(authControllerProvider).signInWithGoogle();
       if (!mounted) return;
-      if (ok) _enterApp();
+      if (ok) {
+        Haptics.success();
+        _enterApp();
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, e.message);
     } catch (_) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, 'Google sign-in failed — try again.');
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/providers.dart';
 import '../../widgets/common.dart';
 import 'ai_models.dart';
@@ -72,6 +73,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return;
     }
 
+    Haptics.tap();
     setState(() {
       _messages.add(_Message(true, text));
       _typing = true;

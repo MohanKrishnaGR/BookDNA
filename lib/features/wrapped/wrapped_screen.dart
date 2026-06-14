@@ -7,6 +7,7 @@ import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app/theme/book_accent.dart';
+import '../../core/haptics/haptics.dart';
 import '../../core/providers.dart';
 import '../../core/utils/format.dart';
 import 'wrapped_stats.dart';
@@ -107,14 +108,17 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
   void _tap(TapUpDetails details, double width, int slideCount) {
     if (details.localPosition.dx < width / 3) {
       if (_index > 0) {
+        Haptics.tap();
         setState(() => _index--);
         _arm();
       }
     } else {
       if (_index < slideCount - 1) {
+        Haptics.tap();
         setState(() => _index++);
         _arm();
       } else {
+        Haptics.celebrate(); // finished the story
         context.pop();
       }
     }

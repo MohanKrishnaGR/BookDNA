@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../widgets/common.dart';
 import '../import/metadata_repository.dart';
 
@@ -46,9 +47,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final meta =
           await ref.read(metadataRepositoryProvider).lookup(isbn);
       if (!mounted) return;
+      Haptics.impact(); // book locked on — the signature scan moment
       context.pushReplacement('/import', extra: meta);
     } on MetadataLookupException catch (e) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, e.message);
       setState(() {
         _busy = false;
@@ -56,6 +59,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       });
     } catch (_) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, 'Lookup failed — check your connection.');
       setState(() {
         _busy = false;

@@ -14,6 +14,8 @@ class BookDnaApp extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     // Arm the sync orchestrator (auth/connectivity/mutation triggers).
     ref.watch(syncControllerProvider);
+    // Load the persisted haptics preference into the Haptics facade.
+    ref.watch(hapticsEnabledProvider);
     return MaterialApp.router(
       title: 'BookDNA',
       debugShowCheckedModeBanner: false,

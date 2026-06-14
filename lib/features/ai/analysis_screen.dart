@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics.dart';
 import '../../core/db/database.dart';
+import '../../core/haptics/haptics.dart';
 import '../../core/providers.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/common.dart';
@@ -79,6 +80,7 @@ class _AiAnalysisScreenState extends ConsumerState<AiAnalysisScreen> {
       Analytics.instance.log('ai_analysis_run', {
         'is_demo': result.isDemo ? 1 : 0,
       });
+      Haptics.success();
       if (!mounted) return;
       setState(() {
         _analysis = result;
@@ -86,6 +88,7 @@ class _AiAnalysisScreenState extends ConsumerState<AiAnalysisScreen> {
       });
     } on AiException catch (e) {
       if (!mounted) return;
+      Haptics.error();
       setState(() {
         _error = e.message;
         // Fall back to the cached result if we have one.

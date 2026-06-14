@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'db/database.dart';
+import 'haptics/haptics.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -54,6 +55,29 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   void toggle(bool dark) {
     state = dark ? ThemeMode.dark : ThemeMode.light;
     ref.read(databaseProvider).setPref('darkMode', dark ? '1' : '0');
+  }
+}
+
+/// Haptic feedback preference, persisted in the local Prefs table (default on).
+/// Keeps the [Haptics] facade's static switch in sync so call sites stay simple.
+final hapticsEnabledProvider =
+    NotifierProvider<HapticsNotifier, bool>(HapticsNotifier.new);
+
+class HapticsNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(databaseProvider).watchPref('hapticsEnabled').listen((v) {
+      final on = v != '0'; // null/'1' → on, '0' → off
+      state = on;
+      Haptics.enabled = on;
+    });
+    return Haptics.enabled;
+  }
+
+  void toggle(bool on) {
+    state = on;
+    Haptics.enabled = on;
+    ref.read(databaseProvider).setPref('hapticsEnabled', on ? '1' : '0');
   }
 }
 

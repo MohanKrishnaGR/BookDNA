@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/haptics/haptics.dart';
+
 /// 5-tab navigation shell with the scan FAB on Home and Library.
 class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.shell});
@@ -20,8 +22,10 @@ class MainShell extends StatelessWidget {
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) =>
-            shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        onDestinationSelected: (i) {
+          if (i != shell.currentIndex) Haptics.selection();
+          shell.goBranch(i, initialLocation: i == shell.currentIndex);
+        },
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.home_outlined),

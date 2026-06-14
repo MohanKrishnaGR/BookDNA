@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/book_accent.dart';
+import '../../core/haptics/haptics.dart';
 import '../../widgets/common.dart';
 import 'challenges_providers.dart';
 
@@ -51,6 +52,7 @@ class ChallengeCard extends ConsumerWidget {
               if (!compact)
                 FilledButton.tonal(
                   onPressed: () async {
+                    joined ? Haptics.tap() : Haptics.success();
                     await ref
                         .read(joinedChallengesProvider.notifier)
                         .toggle(challenge.id);

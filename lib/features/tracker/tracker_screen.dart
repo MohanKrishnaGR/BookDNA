@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/analytics/analytics.dart';
 import '../../core/db/database.dart';
+import '../../core/haptics/haptics.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
 import '../../widgets/book_cover.dart';
@@ -285,6 +286,9 @@ class TrackerScreen extends ConsumerWidget {
                     if (finished) {
                       Analytics.instance
                           .log('book_finished', {'genre': book.genre});
+                      Haptics.celebrate();
+                    } else {
+                      Haptics.success();
                     }
                     if (sheetContext.mounted) Navigator.pop(sheetContext);
                     if (context.mounted) {

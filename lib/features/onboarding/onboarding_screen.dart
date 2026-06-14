@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme/book_accent.dart';
+import '../../core/haptics/haptics.dart';
 
 class _Page {
   const _Page(this.icon, this.title, this.desc, this.hue);
@@ -56,6 +57,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _next() {
     if (_index < _pages.length - 1) {
+      Haptics.selection();
       setState(() => _index++);
     } else {
       context.go('/auth');
@@ -63,7 +65,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _prev() {
-    if (_index > 0) setState(() => _index--);
+    if (_index > 0) {
+      Haptics.selection();
+      setState(() => _index--);
+    }
   }
 
   /// Swipe left → next slide, swipe right → previous slide.
@@ -183,7 +188,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_pages.length, (i) {
                 return GestureDetector(
-                  onTap: () => setState(() => _index = i),
+                  onTap: () {
+                    if (i != _index) Haptics.selection();
+                    setState(() => _index = i);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     curve: const Cubic(0.2, 0, 0, 1),

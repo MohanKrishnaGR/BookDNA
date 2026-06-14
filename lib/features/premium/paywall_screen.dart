@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics.dart';
+import '../../core/haptics/haptics.dart';
 import '../../widgets/common.dart';
 import 'entitlement.dart';
 
@@ -38,6 +39,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       final next =
           await ref.read(premiumProvider.notifier).startTrial();
       Analytics.instance.log('trial_started', {'plan': _yearly ? 'yearly' : 'monthly'});
+      Haptics.success();
       if (!mounted) return;
       showToast(context,
           'Trial started — Premium until ${next.until!.day}/${next.until!.month}');
@@ -45,6 +47,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       if (mounted) context.pop();
     } on PremiumException catch (e) {
       if (!mounted) return;
+      Haptics.error();
       showToast(context, e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -125,11 +128,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
           // Plan toggle.
           Row(children: [
-            _plan(theme, 'Monthly', '₹199', '/mo', !_yearly,
-                () => setState(() => _yearly = false)),
+            _plan(theme, 'Monthly', '₹199', '/mo', !_yearly, () {
+              Haptics.selection();
+              setState(() => _yearly = false);
+            }),
             const SizedBox(width: 10),
-            _plan(theme, 'Yearly', '₹1,499', '/yr · save 37%', _yearly,
-                () => setState(() => _yearly = true)),
+            _plan(theme, 'Yearly', '₹1,499', '/yr · save 37%', _yearly, () {
+              Haptics.selection();
+              setState(() => _yearly = true);
+            }),
           ]),
           const SizedBox(height: 18),
 

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/client.dart';
 import '../../core/sync/sync_providers.dart';
@@ -58,6 +59,7 @@ class SettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final mode = ref.watch(themeModeProvider);
+    final hapticsOn = ref.watch(hapticsEnabledProvider);
     final books = ref.watch(booksProvider).value ?? [];
     final sync = ref.watch(syncControllerProvider);
     final user = ref.watch(currentUserProvider).value;
@@ -101,8 +103,22 @@ class SettingsScreen extends ConsumerWidget {
             'Tonal palettes adapt automatically',
             trailing: Switch(
               value: mode == ThemeMode.dark,
-              onChanged: (v) =>
-                  ref.read(themeModeProvider.notifier).toggle(v),
+              onChanged: (v) {
+                Haptics.selection();
+                ref.read(themeModeProvider.notifier).toggle(v);
+              },
+            ),
+          ),
+          row(
+            Icons.vibration_rounded,
+            'Haptic feedback',
+            'Subtle taps on scans, saves and milestones',
+            trailing: Switch(
+              value: hapticsOn,
+              onChanged: (v) {
+                ref.read(hapticsEnabledProvider.notifier).toggle(v);
+                if (v) Haptics.selection(); // let them feel it turn on
+              },
             ),
           ),
           header('DATA'),
