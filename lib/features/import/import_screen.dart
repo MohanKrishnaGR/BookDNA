@@ -14,7 +14,8 @@ import '../../widgets/book_cover.dart';
 import '../../widgets/common.dart';
 import 'metadata_repository.dart';
 
-/// Review looked-up metadata, optionally edit, then add to library.
+/// Review looked-up (or manually entered) metadata, choose a shelf status,
+/// optionally edit details/price, then add to the library.
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key, required this.metadata});
 
@@ -26,36 +27,61 @@ class ImportScreen extends ConsumerStatefulWidget {
 
 class _ImportScreenState extends ConsumerState<ImportScreen> {
   late final BookMetadata _meta = widget.metadata;
+  // True when we arrived with no catalog match — the user fills details in.
+  late final bool _manualEntry = widget.metadata.title.trim().isEmpty;
+  BookStatus _status = BookStatus.unread;
   bool _added = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Uncatalogued book: open the editor straight away so the user can type.
+    if (_manualEntry) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openEdit();
+      });
+    }
+  }
+
+  bool get _canAdd => !_added && _meta.title.trim().isNotEmpty;
+
   Future<void> _add() async {
-    if (_added) return;
+    if (!_canAdd) return;
     setState(() => _added = true);
     final db = ref.read(databaseProvider);
+    final now = DateTime.now();
+    final finished = _status == BookStatus.read;
+    final reading = _status == BookStatus.reading;
     await db.upsertBook(BooksCompanion.insert(
       id: newId(),
-      title: _meta.title,
+      title: _meta.title.trim(),
       author: Value(_meta.author),
       genre: Value(_meta.genre),
       pages: Value(_meta.pages),
       year: Value(_meta.year),
       price: Value(_meta.listPriceInr),
       estValue: Value(_meta.estimatedValueInr),
-      status: BookStatus.unread,
+      status: _status,
+      progress: Value(finished ? 1.0 : 0.0),
+      currentPage: Value(finished ? _meta.pages : 0),
+      startedAt: Value(reading || finished ? now : null),
+      finishedAt: Value(finished ? now : null),
       hueShift: Value(hueShiftForImport(_meta.genre)),
       isbn: Value(_meta.isbn),
       publisher: Value(_meta.publisher),
       language: Value(_meta.language),
       description: Value(_meta.description),
       coverUrl: Value(_meta.coverUrl),
-      addedAt: DateTime.now(),
+      addedAt: now,
       updatedAt: nowMs(),
     ));
     await db.logActivity(
-        'barcode_scanner', 'Scanned ${_meta.title} into your library');
+        'barcode_scanner', 'Added ${_meta.title.trim()} to your library');
     Analytics.instance.log('book_added', {
       'genre': _meta.genre,
       'has_isbn': _meta.isbn.isNotEmpty ? 1 : 0,
+      'status': _status.name,
+      'manual': _manualEntry ? 1 : 0,
     });
     Haptics.success();
     if (!mounted) return;
@@ -70,9 +96,12 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final priceText = (_meta.listPriceInr != null && _meta.listPriceInr! > 0)
+        ? formatInr(_meta.listPriceInr!)
+        : formatInr(_meta.estimatedValueInr);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Book found'),
+        title: Text(_manualEntry ? 'Add book' : 'Book found'),
         leading: BackButton(onPressed: () => context.pop()),
       ),
       body: Column(
@@ -84,30 +113,67 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 Center(
                   child: Column(children: [
                     BookCover(
-                        title: _meta.title,
+                        title: _meta.title.isEmpty ? 'New book' : _meta.title,
                         author: _meta.author,
                         hueShift: hueShiftForImport(_meta.genre),
                         width: 150),
                     const SizedBox(height: 16),
-                    Text(_meta.title,
+                    Text(_meta.title.isEmpty ? 'Untitled' : _meta.title,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text(_meta.author,
-                        style: theme.textTheme.bodyMedium!
-                            .copyWith(color: scheme.onSurfaceVariant)),
-                    const SizedBox(height: 8),
-                    Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.qr_code_rounded,
-                          size: 16, color: scheme.onSurfaceVariant),
-                      const SizedBox(width: 6),
-                      Text('ISBN ${_meta.isbn}',
-                          style: theme.textTheme.labelMedium!
+                    if (_meta.author.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(_meta.author,
+                          style: theme.textTheme.bodyMedium!
                               .copyWith(color: scheme.onSurfaceVariant)),
-                    ]),
+                    ],
+                    if (_meta.isbn.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.qr_code_rounded,
+                            size: 16, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Text('ISBN ${_meta.isbn}',
+                            style: theme.textTheme.labelMedium!
+                                .copyWith(color: scheme.onSurfaceVariant)),
+                      ]),
+                    ],
+                    if (_manualEntry) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Not in the catalogue — add the details yourself.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall!
+                            .copyWith(color: scheme.tertiary),
+                      ),
+                    ],
                   ]),
                 ),
                 const SizedBox(height: 20),
+
+                // Shelf status — asked on every add.
+                Text('STATUS',
+                    style: theme.textTheme.labelMedium!.copyWith(
+                        color: scheme.onSurfaceVariant, letterSpacing: 1)),
+                const SizedBox(height: 8),
+                SegmentedButton<BookStatus>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                        value: BookStatus.unread, label: Text('Unread')),
+                    ButtonSegment(
+                        value: BookStatus.reading, label: Text('Reading')),
+                    ButtonSegment(
+                        value: BookStatus.read, label: Text('Finished')),
+                  ],
+                  selected: {_status},
+                  onSelectionChanged: (s) {
+                    Haptics.selection();
+                    setState(() => _status = s.first);
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -123,8 +189,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                             _meta.pages > 0 ? '${_meta.pages}' : '—'),
                         _field(context, 'Genre', _meta.genre),
                         _field(context, 'Language', _meta.language),
-                        _field(context, 'Est. value',
-                            formatInr(_meta.estimatedValueInr)),
+                        _field(context, 'Price', priceText),
                       ],
                     ),
                   ),
@@ -170,19 +235,18 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 FilledButton.tonalIcon(
                   onPressed: _openEdit,
                   icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Edit'),
+                  label: Text(_manualEntry ? 'Details' : 'Edit'),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: _add,
+                    onPressed: _canAdd ? _add : null,
                     style:
                         FilledButton.styleFrom(minimumSize: const Size(0, 48)),
                     icon: Icon(_added
                         ? Icons.check_rounded
                         : Icons.library_add_rounded),
-                    label:
-                        Text(_added ? 'Added' : 'Add to library'),
+                    label: Text(_added ? 'Added' : 'Add to library'),
                   ),
                 ),
               ]),
@@ -219,75 +283,100 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       builder: (sheetContext) {
         var title = _meta.title;
         var author = _meta.author;
-        var pages = _meta.pages.clamp(1, 2000);
+        var pages = _meta.pages < 0 ? 0 : _meta.pages;
+        // Don't shrink an existing larger page count just by opening the editor.
+        final maxPages = _meta.pages > 2000 ? _meta.pages : 2000;
         var genre = _meta.genre;
+        var priceText = (_meta.listPriceInr != null && _meta.listPriceInr! > 0)
+            ? _meta.listPriceInr!.toStringAsFixed(0)
+            : '';
         return StatefulBuilder(builder: (context, setSheet) {
           final theme = Theme.of(context);
           return Padding(
             padding: EdgeInsets.fromLTRB(
                 20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Edit details', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 14),
-                TextFormField(
-                  initialValue: title,
-                  decoration: const InputDecoration(labelText: 'Title'),
-                  onChanged: (v) => title = v,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  initialValue: author,
-                  decoration: const InputDecoration(labelText: 'Author'),
-                  onChanged: (v) => author = v,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Pages', style: theme.textTheme.bodyLarge),
-                    StepperRow(
-                        value: pages,
-                        min: 1,
-                        max: 2000,
-                        step: 10,
-                        onChanged: (v) => setSheet(() => pages = v)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final g in kGenres.take(7))
-                      FilterChip(
-                        label: Text(g),
-                        selected: genre == g,
-                        onSelected: (_) => setSheet(() => genre = g),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _meta
-                        ..title = title
-                        ..author = author
-                        ..pages = pages
-                        ..genre = genre;
-                    });
-                    Navigator.pop(sheetContext);
-                    showToast(context, 'Details updated');
-                  },
-                  style:
-                      FilledButton.styleFrom(minimumSize: const Size(0, 50)),
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Save'),
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Edit details', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    initialValue: title,
+                    autofocus: _manualEntry,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Title'),
+                    onChanged: (v) => title = v,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: author,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(labelText: 'Author'),
+                    onChanged: (v) => author = v,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: priceText,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Price paid (₹)',
+                      prefixText: '₹ ',
+                    ),
+                    onChanged: (v) => priceText = v,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Pages', style: theme.textTheme.bodyLarge),
+                      StepperRow(
+                          value: pages,
+                          min: 0,
+                          max: maxPages,
+                          step: 10,
+                          onChanged: (v) => setSheet(() => pages = v)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final g in kGenres)
+                        FilterChip(
+                          label: Text(g),
+                          selected: genre == g,
+                          onSelected: (_) => setSheet(() => genre = g),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () {
+                      final price =
+                          double.tryParse(priceText.trim().replaceAll(',', ''));
+                      setState(() {
+                        _meta
+                          ..title = title.trim()
+                          ..author = author.trim()
+                          ..pages = pages
+                          ..genre = genre
+                          ..listPriceInr =
+                              (price != null && price > 0) ? price : null;
+                      });
+                      Navigator.pop(sheetContext);
+                      if (context.mounted) showToast(context, 'Details updated');
+                    },
+                    style:
+                        FilledButton.styleFrom(minimumSize: const Size(0, 50)),
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text('Save'),
+                  ),
+                ],
+              ),
             ),
           );
         });

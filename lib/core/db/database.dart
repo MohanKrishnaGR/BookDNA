@@ -69,6 +69,15 @@ class AppDatabase extends _$AppDatabase {
   Future<Book?> getBook(String id) =>
       (select(books)..where((b) => b.id.equals(id))).getSingleOrNull();
 
+  /// First non-deleted book matching [isbn] (for duplicate detection on add).
+  Future<Book?> bookByIsbn(String isbn) {
+    if (isbn.isEmpty) return Future.value(null);
+    return (select(books)
+          ..where((b) => b.isbn.equals(isbn) & b.deletedAt.isNull())
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Stream<List<Book>> watchCurrentlyReading() => (select(books)
         ..where((b) =>
             b.deletedAt.isNull() & b.status.equalsValue(BookStatus.reading))

@@ -91,7 +91,7 @@ class MetadataRepository {
   final http.Client _client;
 
   Future<BookMetadata> lookup(String rawIsbn) async {
-    final isbn = rawIsbn.replaceAll(RegExp(r'[^0-9Xx]'), '');
+    final isbn = rawIsbn.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
     if (isbn.length < 10) {
       throw MetadataLookupException('That doesn\'t look like an ISBN.');
     }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/providers.dart';
 import '../../widgets/common.dart';
 import '../import/metadata_repository.dart';
 
@@ -27,6 +28,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   String? _foundIsbn;
   final _controller = MobileScannerController(
     formats: [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.upcA],
+    // Only re-fire when the scanned value changes, so cancelling a dialog
+    // (duplicate / no-match) doesn't immediately re-trigger on the same
+    // barcode still sitting in the camera frame.
+    detectionSpeed: DetectionSpeed.noDuplicates,
   );
   final _isbnController = TextEditingController();
 
@@ -37,35 +42,102 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     super.dispose();
   }
 
-  Future<void> _lookup(String isbn) async {
+  Future<void> _lookup(String raw) async {
     if (_busy) return;
+    final isbn = raw.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
+    if (isbn.length < 10) {
+      Haptics.error();
+      showToast(context, "That doesn't look like an ISBN.");
+      return;
+    }
     setState(() {
       _busy = true;
       _foundIsbn = isbn;
     });
+
+    // 1. Already on the shelf? Ask before adding a second copy.
+    final existing = await ref.read(databaseProvider).bookByIsbn(isbn);
+    if (existing != null) {
+      if (!mounted) return;
+      final again = await _askAddAgain(existing.title);
+      if (again != true) {
+        _reset();
+        return;
+      }
+    }
+
+    // 2. Catalog lookup; fall back to manual entry when nothing is found.
     try {
-      final meta =
-          await ref.read(metadataRepositoryProvider).lookup(isbn);
+      final meta = await ref.read(metadataRepositoryProvider).lookup(isbn);
       if (!mounted) return;
       Haptics.impact(); // book locked on — the signature scan moment
       context.pushReplacement('/import', extra: meta);
-    } on MetadataLookupException catch (e) {
+    } catch (e) {
       if (!mounted) return;
-      Haptics.error();
-      showToast(context, e.message);
-      setState(() {
-        _busy = false;
-        _foundIsbn = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      Haptics.error();
-      showToast(context, 'Lookup failed — check your connection.');
+      // No catalogue match, or the catalogue was unreachable — either way let
+      // the user add the book by hand instead of dead-ending.
+      final manual = await _askAddManually(isbn, e is MetadataLookupException);
+      if (manual == true && mounted) {
+        Haptics.selection();
+        context.pushReplacement('/import',
+            extra: BookMetadata(isbn: isbn, title: ''));
+      } else {
+        _reset();
+      }
+    }
+  }
+
+  void _reset() {
+    if (mounted) {
       setState(() {
         _busy = false;
         _foundIsbn = null;
       });
     }
+  }
+
+  Future<bool?> _askAddAgain(String title) {
+    Haptics.warning();
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Already in your library'),
+        content: Text('"$title" is already on your shelf. Add another copy?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Add again')),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _askAddManually(String isbn, bool noMatch) {
+    Haptics.warning();
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(noMatch
+            ? 'No catalogue match'
+            : "Couldn't reach the catalogue"),
+        content: Text(noMatch
+            ? "We couldn't find ISBN $isbn in the book catalogues. "
+                'Add it manually instead?'
+            : "We couldn't reach the book catalogue (check your connection). "
+                'Add ISBN $isbn manually instead?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Add manually')),
+        ],
+      ),
+    );
   }
 
   @override

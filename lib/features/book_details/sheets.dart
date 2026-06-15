@@ -7,6 +7,7 @@ import '../../app/theme/book_accent.dart';
 import '../../core/db/database.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
+import '../../core/utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/stars.dart';
 
@@ -219,6 +220,18 @@ void showMoreSheet(BuildContext context, WidgetRef ref, Book book) {
                 if (!lending) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.payments_outlined),
+                    title: const Text('Edit price'),
+                    subtitle: Text(book.price != null && book.price! > 0
+                        ? formatInr(book.price!)
+                        : 'Not set'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      showPriceSheet(context, ref, book);
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.swap_horiz_rounded),
                     title: const Text('Lend this book'),
                     onTap: () => setState(() => lending = true),
@@ -292,6 +305,74 @@ void showMoreSheet(BuildContext context, WidgetRef ref, Book book) {
           ),
         );
       });
+    },
+  );
+}
+
+// ───────────────────────── Price sheet ─────────────────────────
+
+/// Correct the price/worth recorded for a book — the amount actually paid
+/// often differs from the catalogue list price.
+void showPriceSheet(BuildContext context, WidgetRef ref, Book book) {
+  final db = ref.read(databaseProvider);
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheetContext) {
+      var text = (book.price != null && book.price! > 0)
+          ? book.price!.toStringAsFixed(0)
+          : '';
+      final theme = Theme.of(sheetContext);
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+            20, 0, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Price you paid', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text('Corrects the catalogue list price for this book.',
+                style: theme.textTheme.bodySmall!
+                    .copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 14),
+            TextFormField(
+              initialValue: text,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Price (₹)',
+                prefixText: '₹ ',
+              ),
+              onChanged: (v) => text = v,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () async {
+                final price =
+                    double.tryParse(text.trim().replaceAll(',', ''));
+                final value = (price != null && price > 0) ? price : null;
+                await db.updateBook(
+                  book.id,
+                  BooksCompanion(
+                    price: Value(value),
+                    // Keep the book's recorded worth in step with the price,
+                    // including when it's cleared.
+                    estValue: Value(value),
+                  ),
+                );
+                if (sheetContext.mounted) Navigator.pop(sheetContext);
+                if (context.mounted) showToast(context, 'Price updated');
+              },
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 50)),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Save price'),
+            ),
+          ],
+        ),
+      );
     },
   );
 }
