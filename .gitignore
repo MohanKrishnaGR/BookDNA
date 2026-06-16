@@ -62,6 +62,12 @@ CLAUDE.md
 .env.*
 /env.json
 
+# Android release signing — keystore + passwords never go in git (CI injects
+# them from secrets; see docs/CICD.md).
+/android/key.properties
+*.jks
+*.keystore
+
 # Firebase (Analytics + Crashlytics) — per-app config, kept out of git;
 # add it locally to android/app/ to activate telemetry.
 /android/app/google-services.json
