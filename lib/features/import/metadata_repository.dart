@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../app/theme/book_accent.dart';
+import '../../core/supabase/client.dart';
 
 /// Normalized book metadata from an ISBN lookup.
 class BookMetadata {
@@ -95,6 +96,19 @@ class MetadataRepository {
     if (isbn.length < 10) {
       throw MetadataLookupException('That doesn\'t look like an ISBN.');
     }
+
+    // Primary: server-side lookup (Google Books with a secret key + Open
+    // Library) via the isbn-lookup Edge Function, when a backend is configured.
+    if (supabaseConfigured) {
+      try {
+        return await _viaEdgeFunction(isbn);
+      } on MetadataLookupException {
+        rethrow; // the server authoritatively found nothing
+      } catch (_) {
+        // Function unreachable → fall back to the direct (keyless) lookups.
+      }
+    }
+
     try {
       final fromGoogle = await _googleBooks(isbn);
       if (fromGoogle != null) return fromGoogle;
@@ -105,6 +119,52 @@ class MetadataRepository {
     if (fromOpenLibrary != null) return fromOpenLibrary;
     throw MetadataLookupException(
         'No match for ISBN $isbn — add the details manually.');
+  }
+
+  /// Calls the `isbn-lookup` Edge Function so the Google Books key stays server
+  /// side. Throws [MetadataLookupException] when the server found nothing
+  /// (authoritative); throws a generic error when the function is unreachable
+  /// so the caller can fall back to the direct keyless lookups.
+  Future<BookMetadata> _viaEdgeFunction(String isbn) async {
+    final res =
+        await supabase.functions.invoke('isbn-lookup', body: {'isbn': isbn});
+    if (res.status != 200) {
+      throw Exception('isbn-lookup status ${res.status}');
+    }
+    final data = res.data is Map
+        ? (res.data as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    if (data['found'] != true) {
+      throw MetadataLookupException(
+          'No match for ISBN $isbn — add the details manually.');
+    }
+    return _fromServer(isbn, data);
+  }
+
+  /// Builds [BookMetadata] from the Edge Function's normalized envelope,
+  /// reusing the same genre/language mapping as the direct providers.
+  BookMetadata _fromServer(String isbn, Map<String, dynamic> d) {
+    final authors = ((d['authors'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final categories =
+        ((d['categories'] as List?) ?? const []).map((e) => e.toString());
+    final published = (d['publishedDate'] as String?) ?? '';
+    final yearMatch = RegExp(r'\d{4}').firstMatch(published);
+    return BookMetadata(
+      isbn: isbn,
+      title: (d['title'] as String?) ?? 'Unknown title',
+      author: authors.join(', '),
+      publisher: d['publisher'] as String?,
+      year: yearMatch != null ? int.parse(yearMatch.group(0)!) : null,
+      pages: (d['pageCount'] as num?)?.toInt() ?? 0,
+      language: _languageName(d['language'] as String?),
+      genre: mapGenre(categories),
+      description: d['description'] as String?,
+      coverUrl: d['coverUrl'] as String?,
+      listPriceInr: (d['listPriceInr'] as num?)?.toDouble(),
+    );
   }
 
   Future<BookMetadata?> _googleBooks(String isbn) async {
