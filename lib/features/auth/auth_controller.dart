@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/analytics/analytics.dart';
+import '../../core/messaging/push_messaging.dart';
 import '../../core/supabase/client.dart';
 
 /// The Google Cloud **Web** OAuth client id — Supabase verifies the ID token
@@ -187,6 +188,9 @@ class AuthController {
 
   Future<void> signOut() async {
     if (!supabaseConfigured) return;
+    // Drop the FCM token while still authenticated (RLS needs the user
+    // context) so this device stops receiving pushes for the old account.
+    await PushMessaging.instance.unregister();
     await supabase.auth.signOut();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/messaging/push_messaging.dart';
 import '../core/notifications/local_notifications.dart';
 import '../core/notifications/notification_scheduler.dart';
 import '../core/providers.dart';
@@ -21,8 +22,9 @@ class _BookDnaAppState extends ConsumerState<BookDnaApp> {
   @override
   void initState() {
     super.initState();
-    // Route a tapped notification through the router.
+    // Route a tapped notification (local or push) through the router.
     LocalNotifications.onNavigate = (route) => router.go(route);
+    PushMessaging.instance.onNavigate = (route) => router.go(route);
     // Re-derive reminders whenever the app comes back to the foreground.
     _lifecycle = AppLifecycleListener(
       onResume: () => ref.read(notificationSchedulerProvider).refresh(),
@@ -46,6 +48,10 @@ class _BookDnaAppState extends ConsumerState<BookDnaApp> {
     ref.watch(syncControllerProvider);
     // Load the persisted haptics preference into the Haptics facade.
     ref.watch(hapticsEnabledProvider);
+    // Mirror the master notifications preference so push token registration
+    // honours it (re-registers/drops the FCM token as the toggle changes).
+    PushMessaging.instance.notificationsEnabled =
+        ref.watch(notificationsEnabledProvider);
     // Keep the reactive notification scheduler alive.
     ref.watch(notificationSchedulerProvider);
     return MaterialApp.router(

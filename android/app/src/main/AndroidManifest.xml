@@ -37,6 +37,12 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <!-- firebase_messaging: render background-delivered push notifications on
+             the same high-importance channel as the Phase 1 local reminders. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="reading_reminders" />
+
         <!-- flutter_local_notifications: deliver scheduled reminders and
              reschedule them after a device reboot. -->
         <receiver

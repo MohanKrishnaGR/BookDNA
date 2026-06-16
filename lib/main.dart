@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'core/analytics/analytics.dart';
+import 'core/messaging/push_messaging.dart';
 import 'core/notifications/local_notifications.dart';
 import 'core/supabase/client.dart';
 
@@ -33,6 +34,9 @@ Future<void> main() async {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
       };
+
+      // FCM push (token registration, foreground display, deep-link).
+      await PushMessaging.instance.init();
     } catch (e) {
       // Firebase not configured for this build — keep the app fully usable.
       debugPrint('Firebase not initialized (telemetry off): $e');

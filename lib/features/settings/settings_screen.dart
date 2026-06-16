@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/messaging/push_messaging.dart';
 import '../../core/notifications/notification_scheduler.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/client.dart';
@@ -140,6 +141,8 @@ class SettingsScreen extends ConsumerWidget {
               onChanged: (v) {
                 ref.read(notificationsEnabledProvider.notifier).set(v);
                 reschedule();
+                // Register or drop the FCM token to match the toggle.
+                PushMessaging.instance.syncRegistration(v);
               },
             ),
           ),
