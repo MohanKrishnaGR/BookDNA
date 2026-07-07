@@ -31,6 +31,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   late final bool _manualEntry = widget.metadata.title.trim().isEmpty;
   BookStatus _status = BookStatus.unread;
   bool _added = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -43,52 +44,67 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     }
   }
 
-  bool get _canAdd => !_added && _meta.title.trim().isNotEmpty;
+  bool get _canAdd => !_added && !_saving && _meta.title.trim().isNotEmpty;
 
   Future<void> _add() async {
     if (!_canAdd) return;
-    setState(() => _added = true);
+    setState(() => _saving = true);
     final db = ref.read(databaseProvider);
     final now = DateTime.now();
     final finished = _status == BookStatus.read;
     final reading = _status == BookStatus.reading;
-    await db.upsertBook(BooksCompanion.insert(
-      id: newId(),
-      title: _meta.title.trim(),
-      author: Value(_meta.author),
-      genre: Value(_meta.genre),
-      pages: Value(_meta.pages),
-      year: Value(_meta.year),
-      price: Value(_meta.listPriceInr),
-      estValue: Value(_meta.estimatedValueInr),
-      status: _status,
-      progress: Value(finished ? 1.0 : 0.0),
-      currentPage: Value(finished ? _meta.pages : 0),
-      startedAt: Value(reading || finished ? now : null),
-      finishedAt: Value(finished ? now : null),
-      hueShift: Value(hueShiftForImport(_meta.genre)),
-      isbn: Value(_meta.isbn),
-      publisher: Value(_meta.publisher),
-      language: Value(_meta.language),
-      description: Value(_meta.description),
-      coverUrl: Value(_meta.coverUrl),
-      addedAt: now,
-      updatedAt: nowMs(),
-    ));
-    await db.logActivity(
-        'barcode_scanner', 'Added ${_meta.title.trim()} to your library');
-    Analytics.instance.log('book_added', {
-      'genre': _meta.genre,
-      'has_isbn': _meta.isbn.isNotEmpty ? 1 : 0,
-      'status': _status.name,
-      'manual': _manualEntry ? 1 : 0,
+    try {
+      await db.upsertBook(BooksCompanion.insert(
+        id: newId(),
+        title: _meta.title.trim(),
+        author: Value(_meta.author),
+        genre: Value(_meta.genre),
+        pages: Value(_meta.pages),
+        year: Value(_meta.year),
+        price: Value(_meta.listPriceInr),
+        estValue: Value(_meta.estimatedValueInr),
+        status: _status,
+        progress: Value(finished ? 1.0 : 0.0),
+        currentPage: Value(finished ? _meta.pages : 0),
+        startedAt: Value(reading || finished ? now : null),
+        finishedAt: Value(finished ? now : null),
+        hueShift: Value(hueShiftForImport(_meta.genre)),
+        isbn: Value(_meta.isbn),
+        publisher: Value(_meta.publisher),
+        language: Value(_meta.language),
+        description: Value(_meta.description),
+        coverUrl: Value(_meta.coverUrl),
+        addedAt: now,
+        updatedAt: nowMs(),
+      ));
+      await db.logActivity(
+          'barcode_scanner', 'Added ${_meta.title.trim()} to your library');
+      Analytics.instance.log('book_added', {
+        'genre': _meta.genre,
+        'has_isbn': _meta.isbn.isNotEmpty ? 1 : 0,
+        'status': _status.name,
+        'manual': _manualEntry ? 1 : 0,
+      });
+    } catch (e) {
+      // Surface the failure (it used to be swallowed by the fire-and-forget
+      // onPressed) and re-enable the button so the user can retry.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      Haptics.error();
+      showToast(context, "Couldn't add the book — please try again.");
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _added = true;
     });
     Haptics.success();
-    if (!mounted) return;
     showToast(context, 'Added to your library');
     await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
-    context.pop();
+    // `go` replaces the /import route with the library branch. (A prior
+    // `context.pop()` here ran `go` on an already-deactivated context.)
     context.go('/library');
   }
 
@@ -96,13 +112,16 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final priceText = (_meta.listPriceInr != null && _meta.listPriceInr! > 0)
+    final hasRealPrice = _meta.listPriceInr != null && _meta.listPriceInr! > 0;
+    final estValue = _meta.estimatedValueInr;
+    final priceText = hasRealPrice
         ? formatInr(_meta.listPriceInr!)
-        : formatInr(_meta.estimatedValueInr);
+        : (estValue > 0 ? '${formatInr(estValue)} est.' : '—');
     return Scaffold(
       appBar: AppBar(
         title: Text(_manualEntry ? 'Add book' : 'Book found'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(
+            onPressed: (_added || _saving) ? null : () => context.pop()),
       ),
       body: Column(
         children: [
@@ -233,7 +252,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
               top: false,
               child: Row(children: [
                 FilledButton.tonalIcon(
-                  onPressed: _openEdit,
+                  onPressed: (_added || _saving) ? null : _openEdit,
                   icon: const Icon(Icons.tune_rounded),
                   label: Text(_manualEntry ? 'Details' : 'Edit'),
                 ),
@@ -243,10 +262,18 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                     onPressed: _canAdd ? _add : null,
                     style:
                         FilledButton.styleFrom(minimumSize: const Size(0, 48)),
-                    icon: Icon(_added
-                        ? Icons.check_rounded
-                        : Icons.library_add_rounded),
-                    label: Text(_added ? 'Added' : 'Add to library'),
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(_added
+                            ? Icons.check_rounded
+                            : Icons.library_add_rounded),
+                    label: Text(_saving
+                        ? 'Adding…'
+                        : (_added ? 'Added' : 'Add to library')),
                   ),
                 ),
               ]),
@@ -356,6 +383,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: () {
+                      if (_manualEntry && title.trim().isEmpty) {
+                        showToast(
+                            sheetContext, 'Enter a title to add the book.');
+                        return;
+                      }
                       final price =
                           double.tryParse(priceText.trim().replaceAll(',', ''));
                       setState(() {
@@ -368,12 +400,23 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                               (price != null && price > 0) ? price : null;
                       });
                       Navigator.pop(sheetContext);
-                      if (context.mounted) showToast(context, 'Details updated');
+                      // Manual entry: add immediately, so the user doesn't have
+                      // to tap "Add to library" again (that tap was landing on
+                      // the sheet's dismiss barrier). For a found book just close
+                      // the sheet — no "Details updated" SnackBar, because it sits
+                      // on top of the "Add to library" button for 2.6s and
+                      // swallows the next tap; the edits are already shown on the
+                      // card.
+                      if (_manualEntry) {
+                        _add();
+                      }
                     },
                     style:
                         FilledButton.styleFrom(minimumSize: const Size(0, 50)),
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('Save'),
+                    icon: Icon(_manualEntry
+                        ? Icons.library_add_rounded
+                        : Icons.check_rounded),
+                    label: Text(_manualEntry ? 'Add to library' : 'Save'),
                   ),
                 ],
               ),
