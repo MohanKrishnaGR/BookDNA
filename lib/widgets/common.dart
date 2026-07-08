@@ -77,7 +77,10 @@ class AnimatedCounter extends StatelessWidget {
 }
 
 /// Plus/minus stepper row used in bottom sheets (prototype `Stepper`).
-class StepperRow extends StatelessWidget {
+///
+/// The centre value is also tap-to-edit: tapping the number turns it into an
+/// inline numeric field so an exact value can be typed, clamped to [min]/[max].
+class StepperRow extends StatefulWidget {
   const StepperRow({
     super.key,
     required this.value,
@@ -94,32 +97,95 @@ class StepperRow extends StatelessWidget {
   final int step;
 
   @override
+  State<StepperRow> createState() => _StepperRowState();
+}
+
+class _StepperRowState extends State<StepperRow> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  bool _editing = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    _controller.text = '${widget.value}';
+    _controller.selection = TextSelection(
+        baseOffset: 0, extentOffset: _controller.text.length);
+    setState(() => _editing = true);
+  }
+
+  void _commit() {
+    if (!_editing) return;
+    final parsed = int.tryParse(_controller.text.trim());
+    setState(() => _editing = false);
+    // Invalid / empty input reverts to the current value (no change).
+    if (parsed != null) {
+      final clamped = parsed.clamp(widget.min, widget.max);
+      if (clamped != widget.value) {
+        Haptics.selection();
+        widget.onChanged(clamped);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton.filledTonal(
-          onPressed: value > min
+          onPressed: widget.value > widget.min
               ? () {
                   Haptics.selection();
-                  onChanged((value - step).clamp(min, max));
+                  widget.onChanged((widget.value - widget.step)
+                      .clamp(widget.min, widget.max));
                 }
               : null,
           icon: const Icon(Icons.remove_rounded),
         ),
         SizedBox(
           width: 64,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          child: _editing
+              ? TextField(
+                  controller: _controller,
+                  focusNode: _focus,
+                  autofocus: true,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  style: theme.textTheme.titleMedium,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(vertical: 4),
+                  ),
+                  onTapOutside: (_) => _commit(),
+                  onEditingComplete: _commit,
+                  onSubmitted: (_) => _commit(),
+                )
+              : InkWell(
+                  onTap: _startEditing,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      '${widget.value}',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                ),
         ),
         IconButton.filledTonal(
-          onPressed: value < max
+          onPressed: widget.value < widget.max
               ? () {
                   Haptics.selection();
-                  onChanged((value + step).clamp(min, max));
+                  widget.onChanged((widget.value + widget.step)
+                      .clamp(widget.min, widget.max));
                 }
               : null,
           icon: const Icon(Icons.add_rounded),

@@ -33,6 +33,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   bool _added = false;
   bool _saving = false;
 
+  // Edit-sheet draft. Held on the State (not in the modal builder's local
+  // scope) so it survives the sheet being dismissed — otherwise a manual entry
+  // dismissed by scrim/swipe/back loses everything typed and can never be added.
+  String _dTitle = '';
+  String _dAuthor = '';
+  int _dPages = 0;
+  String _dGenre = 'Other';
+  String _dPriceText = '';
+
   @override
   void initState() {
     super.initState();
@@ -106,6 +115,17 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     // `go` replaces the /import route with the library branch. (A prior
     // `context.pop()` here ran `go` on an already-deactivated context.)
     context.go('/library');
+  }
+
+  /// Copies the edit-sheet draft into `_meta` (title/author/pages/genre/price).
+  void _commitDraft() {
+    final price = double.tryParse(_dPriceText.trim().replaceAll(',', ''));
+    _meta
+      ..title = _dTitle.trim()
+      ..author = _dAuthor.trim()
+      ..pages = _dPages
+      ..genre = _dGenre
+      ..listPriceInr = (price != null && price > 0) ? price : null;
   }
 
   @override
@@ -303,20 +323,21 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   }
 
   void _openEdit() {
+    // Seed the draft from the current metadata each time the sheet opens.
+    _dTitle = _meta.title;
+    _dAuthor = _meta.author;
+    _dPages = _meta.pages < 0 ? 0 : _meta.pages;
+    _dGenre = _meta.genre;
+    _dPriceText = (_meta.listPriceInr != null && _meta.listPriceInr! > 0)
+        ? _meta.listPriceInr!.toStringAsFixed(0)
+        : '';
+    // Don't shrink an existing larger page count just by opening the editor.
+    final maxPages = _meta.pages > 2000 ? _meta.pages : 2000;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        var title = _meta.title;
-        var author = _meta.author;
-        var pages = _meta.pages < 0 ? 0 : _meta.pages;
-        // Don't shrink an existing larger page count just by opening the editor.
-        final maxPages = _meta.pages > 2000 ? _meta.pages : 2000;
-        var genre = _meta.genre;
-        var priceText = (_meta.listPriceInr != null && _meta.listPriceInr! > 0)
-            ? _meta.listPriceInr!.toStringAsFixed(0)
-            : '';
         return StatefulBuilder(builder: (context, setSheet) {
           final theme = Theme.of(context);
           return Padding(
@@ -330,29 +351,29 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                   Text('Edit details', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 14),
                   TextFormField(
-                    initialValue: title,
+                    initialValue: _dTitle,
                     autofocus: _manualEntry,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Title'),
-                    onChanged: (v) => title = v,
+                    onChanged: (v) => _dTitle = v,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    initialValue: author,
+                    initialValue: _dAuthor,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(labelText: 'Author'),
-                    onChanged: (v) => author = v,
+                    onChanged: (v) => _dAuthor = v,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    initialValue: priceText,
+                    initialValue: _dPriceText,
                     keyboardType: const TextInputType.numberWithOptions(
                         decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Price paid (₹)',
                       prefixText: '₹ ',
                     ),
-                    onChanged: (v) => priceText = v,
+                    onChanged: (v) => _dPriceText = v,
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -360,11 +381,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                     children: [
                       Text('Pages', style: theme.textTheme.bodyLarge),
                       StepperRow(
-                          value: pages,
+                          value: _dPages,
                           min: 0,
                           max: maxPages,
                           step: 10,
-                          onChanged: (v) => setSheet(() => pages = v)),
+                          onChanged: (v) => setSheet(() => _dPages = v)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -375,30 +396,20 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                       for (final g in kGenres)
                         FilterChip(
                           label: Text(g),
-                          selected: genre == g,
-                          onSelected: (_) => setSheet(() => genre = g),
+                          selected: _dGenre == g,
+                          onSelected: (_) => setSheet(() => _dGenre = g),
                         ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: () {
-                      if (_manualEntry && title.trim().isEmpty) {
+                      if (_manualEntry && _dTitle.trim().isEmpty) {
                         showToast(
                             sheetContext, 'Enter a title to add the book.');
                         return;
                       }
-                      final price =
-                          double.tryParse(priceText.trim().replaceAll(',', ''));
-                      setState(() {
-                        _meta
-                          ..title = title.trim()
-                          ..author = author.trim()
-                          ..pages = pages
-                          ..genre = genre
-                          ..listPriceInr =
-                              (price != null && price > 0) ? price : null;
-                      });
+                      setState(_commitDraft);
                       Navigator.pop(sheetContext);
                       // Manual entry: add immediately, so the user doesn't have
                       // to tap "Add to library" again (that tap was landing on
@@ -424,6 +435,15 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           );
         });
       },
-    );
+    ).whenComplete(() {
+      // Sheet closed by any means (button, scrim, swipe, back). For a manual
+      // entry keep whatever was typed so the card + bottom "Add to library"
+      // reflect it — otherwise dismissing the auto-opened sheet would strand
+      // the user with an empty, un-addable book. (Found-book edits still only
+      // commit via "Save", so dismiss = cancel there.)
+      if (_manualEntry && mounted) {
+        setState(_commitDraft);
+      }
+    });
   }
 }

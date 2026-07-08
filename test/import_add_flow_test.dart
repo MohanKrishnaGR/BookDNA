@@ -2,6 +2,7 @@ import 'package:bookdna/core/db/database.dart';
 import 'package:bookdna/core/providers.dart';
 import 'package:bookdna/features/import/import_screen.dart';
 import 'package:bookdna/features/import/metadata_repository.dart';
+import 'package:bookdna/widgets/common.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,4 +144,77 @@ void main() {
         reason: 'the edited title must persist into the saved book');
     expect(tester.takeException(), isNull);
   }, timeout: const Timeout(Duration(seconds: 45)));
+
+  testWidgets(
+      'manual entry: dismissing the sheet keeps the draft, bottom Add saves',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final router = buildRouter();
+
+    await tester.pumpWidget(appWith(router, db));
+    await pumpFrames(tester, 6);
+
+    router.push('/import',
+        extra: BookMetadata(isbn: '9790000000001', title: ''));
+    await pumpFrames(tester, 10);
+
+    // Type a title, then dismiss the auto-opened sheet WITHOUT tapping its
+    // button (tap the scrim above the sheet) — the previous bug lost the draft
+    // and left the screen's Add button disabled forever.
+    await tester.enterText(
+        find.byType(TextFormField).first, 'Dismissed Draft Book');
+    await tester.pump();
+    await tester.tapAt(const Offset(10, 10)); // modal barrier / scrim
+    await pumpFrames(tester, 10);
+
+    // The screen's own "Add to library" must now be enabled and save the book.
+    expect(find.text('Add to library'), findsOneWidget);
+    await tester.tap(find.text('Add to library'));
+    await pumpFrames(tester, 45);
+
+    final books = await readBooks(tester, db);
+    expect(books, hasLength(1),
+        reason: 'draft kept after dismissal must still be addable');
+    expect(books.single.title, 'Dismissed Draft Book');
+    expect(find.text('LIBRARY'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, timeout: const Timeout(Duration(seconds: 45)));
+
+  testWidgets('StepperRow: tapping the number edits the value, clamped to max',
+      (tester) async {
+    var captured = 5;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: StatefulBuilder(
+            builder: (context, setState) => StepperRow(
+              value: captured,
+              min: 0,
+              max: 100,
+              step: 10,
+              onChanged: (v) => setState(() => captured = v),
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    // Tap the number → inline field; type above max → clamps to 100.
+    await tester.tap(find.text('5'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '250');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(captured, 100, reason: 'typed value should clamp to max');
+
+    // Non-numeric input reverts to the current value (no change).
+    await tester.tap(find.text('100'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(captured, 100, reason: 'invalid input must not change the value');
+    expect(tester.takeException(), isNull);
+  });
 }
