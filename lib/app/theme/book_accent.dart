@@ -36,6 +36,8 @@ const Map<String, int> kGenreHueShift = {
   'Biography': 30,
   'Self Help': 320,
   'History': 270,
+  'Fiction': 180,
+  'Other': 100,
 };
 
 /// The canonical genre list used for filters, import mapping and accents.
@@ -51,11 +53,11 @@ const List<String> kGenres = [
   'Other',
 ];
 
-int hueShiftForGenre(String genre) {
-  final known = kGenreHueShift[genre];
-  if (known != null) return known;
-  return genre.hashCode.abs() % 360;
-}
+int hueShiftForGenre(String genre) =>
+    // Every kGenres value is mapped above; an unknown genre falls back to the
+    // curated 'Other' hue so the accent is always deterministic (a previous
+    // String.hashCode fallback shifted between Dart versions/platforms).
+    kGenreHueShift[genre] ?? kGenreHueShift['Other']!;
 
 final double _seedHue = Hct.fromInt(kSeedColorValue).hue;
 final Map<int, TonalPalette> _paletteCache = {};

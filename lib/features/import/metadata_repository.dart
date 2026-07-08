@@ -37,6 +37,9 @@ class BookMetadata {
   /// heuristic, clamped — always shown as "estimated" and user-editable.
   double get estimatedValueInr {
     if (listPriceInr != null && listPriceInr! > 0) return listPriceInr!;
+    // No price and no page count = no value signal; don't fabricate the ₹199
+    // floor for an essentially blank manual entry.
+    if (pages <= 0) return 0;
     final perPage = switch (genre) {
       'Technology' || 'AI & Science' => 4.5,
       'Business' || 'Psychology' => 2.2,
