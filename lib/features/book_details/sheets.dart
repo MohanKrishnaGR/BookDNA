@@ -9,6 +9,7 @@ import '../../core/db/database.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
 import '../../core/utils/format.dart';
+import '../../core/utils/links.dart';
 import '../../widgets/common.dart';
 import '../../widgets/stars.dart';
 
@@ -81,16 +82,15 @@ void showNoteSheet(BuildContext context, WidgetRef ref, Book book) {
 // ───────────────────────── Share sheet ─────────────────────────
 
 void showShareSheet(BuildContext context, Book book) {
-  final slug = (book.isbn != null && book.isbn!.isNotEmpty)
-      ? book.isbn!
-      : book.id;
-  final link = 'https://bookdna.app/b/$slug';
+  // No per-book web pages yet — the Play Store listing is the only link
+  // that resolves, so both actions share it.
+  const link = kPlayStoreUrl;
   final rating = book.rating;
   final shareText = [
     '📚 ${book.title}${book.author.isEmpty ? '' : ' — ${book.author}'}',
     if (rating != null && rating > 0)
       'My rating: ${'★' * rating}${'☆' * (5 - rating)}',
-    'From my BookDNA shelf: $link',
+    'From my BookDNA shelf — get the app: $link',
   ].join('\n');
 
   showModalBottomSheet(
@@ -136,9 +136,9 @@ void showShareSheet(BuildContext context, Book book) {
             ),
             item(
                 Icons.link_rounded,
-                'Copy link',
-                'bookdna.app/b/$slug',
-                () => Clipboard.setData(ClipboardData(text: link)),
+                'Copy app link',
+                'play.google.com/store/apps/…',
+                () => Clipboard.setData(const ClipboardData(text: link)),
                 'Link copied'),
             item(
                 Icons.ios_share_rounded,

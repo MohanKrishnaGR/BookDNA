@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../app/theme/book_accent.dart';
 import '../../core/providers.dart';
 import '../../core/utils/format.dart';
+import '../../core/utils/links.dart';
 import '../../widgets/common.dart';
 import 'challenge_card.dart';
 import 'challenges_providers.dart';
@@ -54,7 +55,7 @@ class CommunityScreen extends ConsumerWidget {
                       text:
                           'I track my bookshelf, streaks and reading DNA '
                           'with BookDNA — join me! '
-                          'https://bookdna.app')),
+                          '$kPlayStoreUrl')),
                   icon: const Icon(Icons.person_add_rounded),
                 ),
               ],
