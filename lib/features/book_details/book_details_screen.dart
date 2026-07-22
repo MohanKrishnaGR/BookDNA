@@ -31,6 +31,9 @@ class BookDetailsScreen extends ConsumerWidget {
           progress: Value(book.status == BookStatus.read ? 0 : book.progress),
           currentPage:
               Value(book.status == BookStatus.read ? 0 : book.currentPage),
+          // "Read again" restarts the book — a stale finish date would
+          // otherwise linger on a now-reading book.
+          finishedAt: const Value(null),
         ),
       );
       await db.logActivity('auto_stories', 'Started reading ${book.title}');

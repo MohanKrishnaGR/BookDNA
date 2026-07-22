@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/theme/book_accent.dart';
 import '../../core/providers.dart';
@@ -49,8 +50,11 @@ class CommunityScreen extends ConsumerWidget {
                   ],
                 ),
                 IconButton.filledTonal(
-                  onPressed: () => showToast(
-                      context, 'Invite link copied — share it anywhere'),
+                  onPressed: () => SharePlus.instance.share(ShareParams(
+                      text:
+                          'I track my bookshelf, streaks and reading DNA '
+                          'with BookDNA — join me! '
+                          'https://bookdna.app')),
                   icon: const Icon(Icons.person_add_rounded),
                 ),
               ],
@@ -200,8 +204,15 @@ class CommunityScreen extends ConsumerWidget {
                       trailing: Wrap(spacing: 2, children: [
                         IconButton(
                           tooltip: 'Remind',
-                          onPressed: () => showToast(context,
-                              'Reminder sent to ${l.toName.split(' ').first}'),
+                          // Opens the system share sheet with a ready-made
+                          // nudge — send it over any messaging app.
+                          onPressed: () => SharePlus.instance.share(
+                              ShareParams(
+                                  text:
+                                      'Hey ${l.toName.split(' ').first}! '
+                                      'Friendly nudge — could I get '
+                                      '"${l.bookTitle}" back when you\'re '
+                                      'done? 📚')),
                           icon:
                               const Icon(Icons.notifications_none_rounded),
                         ),

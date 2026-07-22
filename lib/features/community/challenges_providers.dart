@@ -58,8 +58,10 @@ const kDefaultChallenges = [
   Challenge(
       id: 'club-sprint',
       icon: 'groups',
-      title: 'Book Club Sprint',
-      description: 'Finish 1 book with your circle',
+      title: 'Monthly Sprint',
+      // Progress counts any finish this month; circle-scoped tracking
+      // arrives with the social graph (Phase 3).
+      description: 'Finish 1 book this month',
       kind: 'club',
       target: 1,
       hueShift: 210),

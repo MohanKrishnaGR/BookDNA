@@ -1,23 +1,16 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../../app/theme/book_accent.dart';
 import '../../core/db/database.dart';
 import '../../core/models/book_status.dart';
 import '../../core/providers.dart';
 import '../../core/utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/stars.dart';
-
-/// Friends available for lending (social graph arrives in Phase 3).
-const kFriends = [
-  ('Priya S', 'PS', 210),
-  ('Arjun K', 'AK', 60),
-  ('Sneha R', 'SR', 320),
-  ('Vikram N', 'VN', 150),
-];
 
 // ───────────────────────── Note sheet ─────────────────────────
 
@@ -88,13 +81,26 @@ void showNoteSheet(BuildContext context, WidgetRef ref, Book book) {
 // ───────────────────────── Share sheet ─────────────────────────
 
 void showShareSheet(BuildContext context, Book book) {
+  final slug = (book.isbn != null && book.isbn!.isNotEmpty)
+      ? book.isbn!
+      : book.id;
+  final link = 'https://bookdna.app/b/$slug';
+  final rating = book.rating;
+  final shareText = [
+    '📚 ${book.title}${book.author.isEmpty ? '' : ' — ${book.author}'}',
+    if (rating != null && rating > 0)
+      'My rating: ${'★' * rating}${'☆' * (5 - rating)}',
+    'From my BookDNA shelf: $link',
+  ].join('\n');
+
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
     builder: (sheetContext) {
       final theme = Theme.of(context);
       final scheme = theme.colorScheme;
-      Widget item(IconData icon, String title, String sub, String toast) {
+      Widget item(IconData icon, String title, String sub,
+          Future<void> Function() action, String? toast) {
         return ListTile(
           leading: Container(
             width: 42,
@@ -108,9 +114,12 @@ void showShareSheet(BuildContext context, Book book) {
           ),
           title: Text(title),
           subtitle: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis),
-          onTap: () {
+          onTap: () async {
             Navigator.pop(sheetContext);
-            showToast(context, toast);
+            await action();
+            if (toast != null && context.mounted) {
+              showToast(context, toast);
+            }
           },
         );
       }
@@ -125,13 +134,19 @@ void showShareSheet(BuildContext context, Book book) {
               child: Text('Share “${book.title}”',
                   style: theme.textTheme.titleMedium),
             ),
-            item(Icons.link_rounded, 'Copy link',
-                'bookdna.app/b/${book.isbn ?? book.id}', 'Link copied'),
-            item(Icons.image_rounded, 'Share as card',
-                'Cover + your rating as an image', 'Share card created'),
-            item(Icons.forum_rounded, 'Recommend to friends',
-                'Friends who read ${book.genre} will see it',
-                'Shared — friends will see it in feed'),
+            item(
+                Icons.link_rounded,
+                'Copy link',
+                'bookdna.app/b/$slug',
+                () => Clipboard.setData(ClipboardData(text: link)),
+                'Link copied'),
+            item(
+                Icons.ios_share_rounded,
+                'Share…',
+                'Title, your rating and a link — via any app',
+                () => SharePlus.instance
+                    .share(ShareParams(text: shareText)),
+                null),
             const SizedBox(height: 8),
           ],
         ),
@@ -147,14 +162,17 @@ void showMoreSheet(BuildContext context, WidgetRef ref, Book book) {
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true, // keyboard-aware for the lend name field
     builder: (sheetContext) {
       var lending = false;
+      var borrower = '';
       return StatefulBuilder(builder: (context, setState) {
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            padding: EdgeInsets.fromLTRB(
+                20, 0, 20, 16 + MediaQuery.of(context).viewInsets.bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,6 +204,12 @@ void showMoreSheet(BuildContext context, WidgetRef ref, Book book) {
                             : s == BookStatus.unread
                                 ? 0
                                 : book.currentPage),
+                        // Keep the start/finish dates consistent with the
+                        // status: unread resets both, reading/read record a
+                        // start if one was never set.
+                        startedAt: Value(s == BookStatus.unread
+                            ? null
+                            : (book.startedAt ?? DateTime.now())),
                         finishedAt: Value(
                             s == BookStatus.read ? DateTime.now() : null),
                       ),
@@ -256,47 +280,38 @@ void showMoreSheet(BuildContext context, WidgetRef ref, Book book) {
                       style: theme.textTheme.labelLarge!
                           .copyWith(color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      for (final (name, initials, hue) in kFriends)
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              await db.addLend(
-                                  bookTitle: book.title,
-                                  bookId: book.id,
-                                  toName: name);
-                              await db.logActivity('swap_horiz',
-                                  'Lent ${book.title} to $name');
-                              if (sheetContext.mounted) {
-                                Navigator.pop(sheetContext);
-                              }
-                              if (context.mounted) {
-                                showToast(context,
-                                    'Lent to ${name.split(' ').first} — reminder set for 3 weeks');
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(children: [
-                              Builder(builder: (context) {
-                                final a =
-                                    accentFor(hue, theme.brightness);
-                                return CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: a.container,
-                                  child: Text(initials,
-                                      style: TextStyle(
-                                          color: a.onContainer,
-                                          fontWeight: FontWeight.w700)),
-                                );
-                              }),
-                              const SizedBox(height: 6),
-                              Text(name.split(' ').first,
-                                  style: theme.textTheme.labelMedium),
-                            ]),
-                          ),
-                        ),
-                    ],
+                  TextField(
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                        labelText: "Borrower's name",
+                        hintText: 'Who has it?'),
+                    onChanged: (v) => setState(() => borrower = v),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: borrower.trim().isEmpty
+                        ? null
+                        : () async {
+                            final name = borrower.trim();
+                            await db.addLend(
+                                bookTitle: book.title,
+                                bookId: book.id,
+                                toName: name);
+                            await db.logActivity('swap_horiz',
+                                'Lent ${book.title} to $name');
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                            if (context.mounted) {
+                              showToast(context,
+                                  'Lent to ${name.split(' ').first} — due back in 3 weeks');
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 50)),
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    label: const Text('Lend for 3 weeks'),
                   ),
                   const SizedBox(height: 8),
                 ],

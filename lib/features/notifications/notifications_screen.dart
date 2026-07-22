@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/theme/book_accent.dart';
 import '../../core/providers.dart';
 import '../../widgets/common.dart';
 import '../insights/logic/formulas.dart';
+import '../wrapped/wrapped_stats.dart';
 
 /// Notification center, generated from real local state:
 /// streak risk, overdue lends, goal progress.
@@ -26,6 +28,8 @@ class NotificationsScreen extends ConsumerWidget {
         s.sessionDate.year == today.year &&
         s.sessionDate.month == today.month &&
         s.sessionDate.day == today.day);
+    // Only announce Wrapped when the month (or its fallback) has activity.
+    final wrapped = WrappedStats.compute(books, sessions);
 
     final items = <({IconData icon, int hue, String title, String sub, String? action, VoidCallback? onAction})>[
       if (streak > 0 && !readToday)
@@ -46,8 +50,10 @@ class NotificationsScreen extends ConsumerWidget {
                 '${l.bookTitle} is ${DateTime.now().difference(l.dueOn!).inDays} days overdue',
             sub: '${l.toName} borrowed it — send a reminder?',
             action: 'Remind',
-            onAction: () => showToast(
-                context, 'Reminder sent to ${l.toName.split(' ').first}'),
+            onAction: () => SharePlus.instance.share(ShareParams(
+                text: 'Hey ${l.toName.split(' ').first}! Friendly nudge — '
+                    'could I get "${l.bookTitle}" back when you\'re '
+                    'done? 📚')),
           ),
       if (goal != null)
         (
@@ -59,29 +65,23 @@ class NotificationsScreen extends ConsumerWidget {
           action: null,
           onAction: null,
         ),
-      (
-        icon: Icons.auto_awesome_rounded,
-        hue: 150,
-        title: 'Your Wrapped is ready',
-        sub: 'Your month in books, as a story — see how it went',
-        action: 'Watch',
-        onAction: () => context.push('/wrapped'),
-      ),
+      if (!wrapped.isEmpty)
+        (
+          icon: Icons.auto_awesome_rounded,
+          hue: 150,
+          title: 'Your ${wrapped.monthLabel} Wrapped is ready',
+          sub: 'Your month in books, as a story — see how it went',
+          action: 'Watch',
+          onAction: () => context.push('/wrapped'),
+        ),
     ];
 
     return Scaffold(
+      // No "Clear all": these cards are derived live from streak/lend/goal
+      // state, so the only honest way to clear one is to act on it.
       appBar: AppBar(
         title: const Text('Notifications'),
         leading: BackButton(onPressed: () => context.pop()),
-        actions: [
-          TextButton(
-            onPressed: () {
-              showToast(context, 'All caught up');
-              context.pop();
-            },
-            child: const Text('Clear all'),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),

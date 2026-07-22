@@ -15,6 +15,40 @@ import '../../widgets/ring.dart';
 import '../insights/logic/formulas.dart';
 import 'heatmap.dart';
 
+/// Commits a logged reading session: inserts the session row and moves the
+/// book's page/progress/status/dates forward. Returns whether the book was
+/// finished by this session.
+///
+/// A book with an unknown page count (pages <= 0) accumulates pages read but
+/// never auto-finishes — `0 >= 0` would otherwise mark it read on the very
+/// first log. The first session on an unread book also starts the clock
+/// (`startedAt`).
+Future<bool> logReadingSession(
+  AppDatabase db,
+  Book book, {
+  required int pages,
+  required int minutes,
+}) async {
+  final hasPageCount = book.pages > 0;
+  final newPage = hasPageCount
+      ? (book.currentPage + pages).clamp(0, book.pages)
+      : book.currentPage + pages;
+  final finished = hasPageCount && newPage >= book.pages;
+  await db.addSession(bookId: book.id, pages: pages, minutes: minutes);
+  await db.updateBook(
+    book.id,
+    BooksCompanion(
+      currentPage: Value(newPage),
+      progress: Value(hasPageCount ? newPage / book.pages : 0),
+      status: Value(finished ? BookStatus.read : BookStatus.reading),
+      startedAt: Value(book.startedAt ?? DateTime.now()),
+      finishedAt: Value(finished ? DateTime.now() : null),
+    ),
+  );
+  await db.logActivity('auto_stories', 'Read $pages pages of ${book.title}');
+  return finished;
+}
+
 class TrackerScreen extends ConsumerWidget {
   const TrackerScreen({super.key, required this.bookId});
 
@@ -104,8 +138,15 @@ class TrackerScreen extends ConsumerWidget {
                   _tile(context, Icons.speed_rounded,
                       '${speed.round()}/hr', 'reading speed'),
                   const SizedBox(width: 10),
-                  _tile(context, Icons.event_available_rounded,
-                      pagesLeft == 0 ? 'Done' : '$days days', 'to finish'),
+                  _tile(
+                      context,
+                      Icons.event_available_rounded,
+                      book.pages <= 0
+                          ? '—'
+                          : pagesLeft == 0
+                              ? 'Done'
+                              : '$days days',
+                      'to finish'),
                 ]),
 
                 const SectionTitle(title: 'Recent sessions'),
@@ -128,7 +169,10 @@ class TrackerScreen extends ConsumerWidget {
                             subtitle: Text(
                                 DateFormat('EEE, d MMM').format(s.sessionDate)),
                             trailing: Text(
-                                '${(s.pages / s.minutes * 60).round()} pp/hr',
+                                // Guard synced/imported rows with 0 minutes.
+                                s.minutes > 0
+                                    ? '${(s.pages / s.minutes * 60).round()} pp/hr'
+                                    : '—',
                                 style: theme.textTheme.labelMedium!.copyWith(
                                     color: scheme.onSurfaceVariant)),
                           ),
@@ -214,9 +258,15 @@ class TrackerScreen extends ConsumerWidget {
       builder: (sheetContext) {
         var pages = 20;
         var minutes = 30;
+        // Books added without a page count (pages == 0) can still log
+        // sessions, but never auto-finish — 0 >= 0 would otherwise mark
+        // them read on the very first log.
+        final hasPageCount = book.pages > 0;
         return StatefulBuilder(builder: (context, setState) {
           final theme = Theme.of(context);
-          final newPage = (book.currentPage + pages).clamp(0, book.pages);
+          final newPage = hasPageCount
+              ? (book.currentPage + pages).clamp(0, book.pages)
+              : book.currentPage + pages;
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             child: Column(
@@ -253,32 +303,18 @@ class TrackerScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'You\'ll be on page $newPage of ${book.pages}.',
+                  hasPageCount
+                      ? 'You\'ll be on page $newPage of ${book.pages}.'
+                      : 'Page count unknown — set it from the book\'s '
+                          'edit sheet to track progress.',
                   style: theme.textTheme.bodySmall!.copyWith(
                       color: theme.colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () async {
-                    final finished = newPage >= book.pages;
-                    await db.addSession(
-                        bookId: book.id, pages: pages, minutes: minutes);
-                    await db.updateBook(
-                      book.id,
-                      BooksCompanion(
-                        currentPage: Value(newPage),
-                        progress: Value(book.pages == 0
-                            ? 0
-                            : newPage / book.pages),
-                        status: Value(finished
-                            ? BookStatus.read
-                            : BookStatus.reading),
-                        finishedAt:
-                            Value(finished ? DateTime.now() : null),
-                      ),
-                    );
-                    await db.logActivity('auto_stories',
-                        'Read $pages pages of ${book.title}');
+                    final finished = await logReadingSession(db, book,
+                        pages: pages, minutes: minutes);
                     Analytics.instance.log('reading_session_logged', {
                       'pages': pages,
                       'minutes': minutes,
