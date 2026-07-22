@@ -1,34 +1,421 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BookDNA</title>
-  <meta name="description" content="BookDNA — understand your reading life. Legal and support information.">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BookDNA — Understand your reading life</title>
+<meta name="description" content="BookDNA turns your physical bookshelf into insights. Scan any book, organize your whole library, and decode your reading DNA with AI." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0" rel="stylesheet" />
+<style>
+  :root{
+    --indigo:#0b57d0; --indigo-2:#1d3d93; --indigo-deep:#0e2156;
+    --pink:#ffe7f0; --amber:#ffeed9; --green:#ecf4e0; --blue:#e6eeff; --purple:#efe4ff;
+    --ink:#16223f; --muted:#5b667e; --line:#e7eaf2; --bg:#ffffff; --soft:#f5f7fc;
+    --r:22px; --shadow:0 18px 50px rgba(20,34,80,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Figtree",system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;line-height:1.5}
+  .msr{font-family:"Material Symbols Rounded";font-weight:normal;font-style:normal;line-height:1;display:inline-block;vertical-align:middle}
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--indigo)}
+
+  /* nav */
+  header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(12px);background:rgba(255,255,255,.82);border-bottom:1px solid transparent;transition:border-color .3s, background .3s}
+  header.scrolled{border-color:var(--line)}
+  .nav{display:flex;align-items:center;gap:28px;height:72px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .logo{width:36px;height:36px;border-radius:11px;background:var(--indigo);display:flex;align-items:center;justify-content:center;flex:none}
+  .logo .msr{color:#fff;font-size:22px}
+  .nav .links{display:flex;gap:26px;margin-left:8px}
+  .nav .links a{font-size:15px;font-weight:500;color:var(--muted);transition:color .2s}
+  .nav .links a:hover{color:var(--ink)}
+  .nav .spacer{flex:1}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 22px;border-radius:999px;font-weight:600;font-size:15px;cursor:pointer;border:none;transition:transform .15s, box-shadow .2s, background .2s;white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--indigo);color:#fff;box-shadow:0 8px 20px rgba(11,87,208,.28)}
+  .btn-primary:hover{background:#0a4cb8}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--soft)}
+  .nav-cta{display:flex;gap:10px;align-items:center}
+  .menu-btn{display:none;background:none;border:none;cursor:pointer}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;background:linear-gradient(160deg,#21429b 0%,#0e2156 70%);color:#fff}
+  .hero .blob{position:absolute;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none}
+  .hero-inner{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding:78px 0 96px}
+  .hero h1{font-size:clamp(38px,5.4vw,64px);line-height:1.04;letter-spacing:-.03em;font-weight:800}
+  .hero p.sub{font-size:clamp(17px,2vw,20px);color:#cdd9f5;margin-top:22px;max-width:520px}
+  .hero .eyebrow{color:#9fc0ff}
+  .store-row{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap}
+  .store{display:inline-flex;align-items:center;gap:11px;background:#fff;color:#0e1830;height:56px;padding:0 22px 0 18px;border-radius:14px;transition:transform .15s, box-shadow .2s;box-shadow:0 10px 26px rgba(0,0,0,.22)}
+  .store:hover{transform:translateY(-2px)}
+  .store .msr{font-size:30px}
+  .store small{display:block;font-size:11px;line-height:1.1;color:#5b667e;font-weight:600}
+  .store b{display:block;font-size:17px;line-height:1.15;letter-spacing:-.01em}
+  .store.play .tri{width:26px;height:28px}
+  .hero-note{margin-top:18px;font-size:13.5px;color:#9fb2e0;display:flex;align-items:center;gap:8px}
+  .phones{position:relative;height:560px}
+  .phones img{position:absolute;border-radius:34px;box-shadow:0 30px 70px rgba(0,0,0,.45);width:262px}
+  .phones .p1{left:118px;top:0;transform:rotate(4deg);z-index:2}
+  .phones .p2{left:-6px;top:54px;transform:rotate(-7deg);z-index:1;opacity:.96}
+
+  /* value strip */
+  .values{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:-52px;position:relative;z-index:5}
+  .vcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:26px;box-shadow:var(--shadow)}
+  .vcard .ic{width:48px;height:48px;border-radius:13px;background:var(--blue);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+  .vcard .ic .msr{color:var(--indigo);font-size:26px}
+  .vcard h3{font-size:19px;letter-spacing:-.01em}
+  .vcard p{color:var(--muted);font-size:15px;margin-top:6px}
+
+  section.block{padding:92px 0}
+  .sec-head{max-width:680px;margin:0 auto 12px;text-align:center}
+  .sec-head h2{font-size:clamp(28px,3.6vw,42px);letter-spacing:-.025em;font-weight:800;margin-top:12px}
+  .sec-head p{color:var(--muted);font-size:18px;margin-top:14px}
+
+  /* showcase rows */
+  .showcase{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:64px}
+  .showcase:first-of-type{margin-top:52px}
+  .showcase .media{display:flex;justify-content:center;position:relative}
+  .showcase .media .pane{border-radius:30px;padding:34px;width:100%;display:flex;justify-content:center;gap:18px}
+  .showcase .media img{width:248px;border-radius:30px;box-shadow:var(--shadow)}
+  .showcase:nth-child(even) .text{order:2}
+  .showcase:nth-child(even) .media{order:1}
+  .showcase .text h3{font-size:clamp(24px,3vw,33px);letter-spacing:-.02em;font-weight:800;margin-top:14px}
+  .showcase .text p{color:var(--muted);font-size:17px;margin-top:14px}
+  .feat-list{margin-top:22px;display:flex;flex-direction:column;gap:13px}
+  .feat-list li{list-style:none;display:flex;gap:12px;align-items:flex-start;font-size:16px}
+  .feat-list .msr{color:var(--indigo);font-size:22px;flex:none}
+
+  /* feature grid */
+  .grid6{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:56px}
+  .fcard{border:1px solid var(--line);border-radius:var(--r);padding:28px;background:#fff;transition:transform .2s, box-shadow .2s}
+  .fcard:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .fcard .ic{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .fcard .ic .msr{font-size:27px}
+  .fcard h3{font-size:19px;letter-spacing:-.01em}
+  .fcard p{color:var(--muted);font-size:15px;margin-top:8px}
+
+  /* insights dark band */
+  .dark{background:linear-gradient(160deg,#1d3d93,#0c1c4a);color:#fff;border-radius:32px;overflow:hidden;margin:0 24px}
+  .dark-inner{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;padding:64px}
+  .dark h2{font-size:clamp(28px,3.4vw,40px);letter-spacing:-.025em;font-weight:800}
+  .dark p{color:#c4d2f2;font-size:17px;margin-top:16px}
+  .dark .eyebrow{color:#9fc0ff}
+  .chiprow{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .chiprow span{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);padding:8px 15px;border-radius:999px;font-size:14px;font-weight:500}
+  .dark .media img{width:300px;border-radius:30px;box-shadow:0 30px 70px rgba(0,0,0,.45);margin:0 auto;transform:rotate(-4deg)}
+
+  /* pricing */
+  .price-grid{display:grid;grid-template-columns:repeat(2,minmax(0,360px));gap:24px;justify-content:center;margin-top:56px}
+  .plan{border:1px solid var(--line);border-radius:24px;padding:34px;background:#fff;position:relative}
+  .plan.featured{border-color:var(--indigo);box-shadow:0 18px 50px rgba(11,87,208,.16)}
+  .plan .tag{position:absolute;top:-13px;left:34px;background:var(--indigo);color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;padding:6px 13px;border-radius:999px}
+  .plan h3{font-size:20px}
+  .plan .price{font-size:44px;font-weight:800;letter-spacing:-.03em;margin:14px 0 2px}
+  .plan .price span{font-size:17px;font-weight:600;color:var(--muted)}
+  .plan ul{list-style:none;margin:22px 0 26px;display:flex;flex-direction:column;gap:12px}
+  .plan li{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:#33405e}
+  .plan li .msr{color:var(--indigo);font-size:21px;flex:none}
+  .plan .btn{width:100%}
+
+  /* final cta */
+  .cta{background:linear-gradient(160deg,#21429b,#0e2156);color:#fff;border-radius:32px;margin:0 24px;text-align:center;padding:72px 24px;overflow:hidden;position:relative}
+  .cta h2{font-size:clamp(30px,4vw,46px);letter-spacing:-.03em;font-weight:800}
+  .cta p{color:#cdd9f5;font-size:18px;margin-top:16px}
+  .cta .store-row{justify-content:center}
+
+  footer{padding:64px 0 40px;border-top:1px solid var(--line);margin-top:90px}
+  .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:30px}
+  .foot p{color:var(--muted);font-size:14.5px;margin-top:14px;max-width:280px}
+  .foot h4{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .foot a{display:block;color:#33405e;font-size:15px;margin-bottom:10px}
+  .foot a:hover{color:var(--indigo)}
+  .copyright{margin-top:46px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,0,0,1), transform .7s cubic-bezier(.2,0,0,1)}
+  .reveal.in{opacity:1;transform:none}
+  .hero-in{opacity:1}
+  .phones.hero-in{animation:heroIn .8s cubic-bezier(.2,0,0,1) both;animation-delay:.1s}
+  @keyframes heroIn{from{transform:translateY(26px)}to{transform:none}}
+
+  @media(max-width:920px){
+    .nav .links{display:none}
+    .hero-inner{grid-template-columns:1fr;gap:10px;padding:54px 0 80px}
+    .phones{height:480px;margin-top:10px}
+    .values{grid-template-columns:1fr;margin-top:-40px}
+    .showcase{grid-template-columns:1fr;gap:30px}
+    .showcase:nth-child(even) .text{order:0}
+    .showcase:nth-child(even) .media{order:0}
+    .grid6{grid-template-columns:1fr}
+    .dark-inner{grid-template-columns:1fr;padding:44px 28px;gap:30px}
+    .dark .media img{transform:none}
+    .price-grid{grid-template-columns:1fr}
+    .foot{grid-template-columns:1fr 1fr}
+    .nav-cta .btn-ghost{display:none}
+  }
+  @media(max-width:560px){
+    .foot{grid-template-columns:1fr}
+  }
+</style>
 </head>
 <body>
-  <main class="wrap">
-    <header>
-      <div class="logo">B</div>
-      <div class="brand">BookDNA</div>
-    </header>
-    <p class="meta">Understand your reading life. Turn your bookshelf into insights.</p>
-
-    <h1>Legal &amp; support</h1>
-    <p class="muted">Policies and contact information for the BookDNA mobile app.</p>
-
-    <nav class="cards">
-      <a href="privacy.html">Privacy Policy<span>What data BookDNA collects, why, and how it's protected</span></a>
-      <a href="delete-account.html">Delete your account<span>How to request deletion of your account and data</span></a>
-      <a href="terms.html">Terms of Service<span>The terms for using BookDNA</span></a>
-      <a href="support.html">Support &amp; contact<span>Get help or reach the developer</span></a>
+<header id="hdr">
+  <div class="wrap nav">
+    <div class="brand"><span class="logo"><span class="msr" style="font-variation-settings:'FILL' 1">auto_stories</span></span>BookDNA</div>
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#insights">Insights</a>
+      <a href="#pricing">Pricing</a>
     </nav>
+    <div class="spacer"></div>
+    <div class="nav-cta">
+      <a href="#pricing" class="btn btn-ghost">See pricing</a>
+      <a href="#get" class="btn btn-primary">Get the app</a>
+    </div>
+  </div>
+</header>
 
-    <footer>
-      BookDNA is developed by Mohan Krishna G R. Contact:
-      <a href="mailto:mohankrishnagr08@gmail.com">mohankrishnagr08@gmail.com</a>.
-    </footer>
-  </main>
+<section class="hero">
+  <div class="blob" style="width:520px;height:520px;right:-120px;top:-160px"></div>
+  <div class="blob" style="width:300px;height:300px;left:-80px;bottom:-120px"></div>
+  <div class="wrap hero-inner">
+    <div class="hero-in">
+      <div class="eyebrow">Your bookshelf, decoded</div>
+      <h1>Understand your reading life</h1>
+      <p class="sub">BookDNA turns your physical bookshelf into insights. Scan any book, organize your whole library, and discover what your shelf says about you — powered by AI.</p>
+      <div class="store-row" id="get">
+        <a class="store" href="#get" aria-label="Download on the App Store">
+          <svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M16.36 12.78c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.02-1.12 2.78-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.67zM14.13 5.9c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.85 1.02.08 2.07-.52 2.71-1.3z"/></svg>
+          <span><small>Download on the</small><b>App Store</b></span>
+        </a>
+        <a class="store play" href="#get" aria-label="Get it on Google Play">
+          <svg class="tri" viewBox="0 0 24 26" aria-hidden="true"><path d="M1 1.6 13.7 13 1 24.4c-.4-.2-.7-.6-.7-1.2V2.8c0-.6.3-1 .7-1.2Z" fill="#34a853"/><path d="M1 1.6c.1 0 .3 0 .5.1L17 10.5l-3.3 2.5L1 1.6Z" fill="#00c3ff"/><path d="M1 24.4 13.7 13 17 15.5 1.5 24.3c-.2.1-.4.1-.5.1Z" fill="#ff3a44"/><path d="M17 10.5 21.6 13c.9.5.9 1.6 0 2.1L17 17.5 13.7 13 17 10.5Z" fill="#ffc107"/></svg>
+          <span><small>Get it on</small><b>Google Play</b></span>
+        </a>
+      </div>
+      <div class="hero-note"><span class="msr" style="font-size:18px">lock</span> Free to start · Your library stays private</div>
+    </div>
+    <div class="phones hero-in">
+      <img class="p2" src="assets/insights.png" alt="BookDNA reading insights" />
+      <img class="p1" src="assets/home.png" alt="BookDNA home screen" />
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="values">
+    <div class="vcard reveal">
+      <div class="ic"><span class="msr">barcode_scanner</span></div>
+      <h3>Scan in seconds</h3>
+      <p>Point your camera at an ISBN — cover, pages, genre and value, filled in instantly.</p>
+    </div>
+    <div class="vcard reveal">
+      <div class="ic" style="background:var(--amber)"><span class="msr" style="color:#b3691a">insights</span></div>
+      <h3>Decode your shelf</h3>
+      <p>Genres, eras, gaps and growth — your reading life turned into clear visualizations.</p>
+    </div>
+    <div class="vcard reveal">
+      <div class="ic" style="background:var(--green)"><span class="msr" style="color:#4c7a1e">auto_awesome</span></div>
+      <h3>AI that knows you</h3>
+      <p>Ask your library anything and get next reads picked from books you already own.</p>
+    </div>
+  </div>
+</div>
+
+<section class="block" id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Everything in one shelf</div>
+      <h2>From a pile of books to a living library</h2>
+      <p>BookDNA is built around your physical collection — every feature makes the books you already own more useful.</p>
+    </div>
+
+    <div class="showcase">
+      <div class="text reveal">
+        <div class="eyebrow">Your library</div>
+        <h3>Every book you own, beautifully organized</h3>
+        <p>Browse your whole collection four ways — a cover grid, a spine shelf, a detailed list, or a timeline of when each book entered your life.</p>
+        <ul class="feat-list">
+          <li><span class="msr">check_circle</span> Grid, shelf, list & timeline views</li>
+          <li><span class="msr">check_circle</span> Instant search across your whole shelf</li>
+          <li><span class="msr">check_circle</span> Filter and sort by genre, status, year or value</li>
+        </ul>
+      </div>
+      <div class="media reveal">
+        <div class="pane" style="background:var(--pink)">
+          <img src="assets/library.png" alt="Library shelf view" />
+        </div>
+      </div>
+    </div>
+
+    <div class="showcase">
+      <div class="text reveal">
+        <div class="eyebrow">Insights</div>
+        <h3>Discover your reading DNA</h3>
+        <p>Your shelf says more about you than you think. See your genre breakdown, reading personality, diversity score and how your taste has evolved year by year.</p>
+        <ul class="feat-list">
+          <li><span class="msr">check_circle</span> Shelf composition & reading personality</li>
+          <li><span class="msr">check_circle</span> Diversity radar and reading evolution</li>
+          <li><span class="msr">check_circle</span> Library value and unread-knowledge tracker</li>
+        </ul>
+      </div>
+      <div class="media reveal">
+        <div class="pane" style="background:var(--amber)">
+          <img src="assets/insights.png" alt="Reading insights" />
+        </div>
+      </div>
+    </div>
+
+    <div class="showcase">
+      <div class="text reveal">
+        <div class="eyebrow">AI analysis</div>
+        <h3>An AI that has read your whole shelf</h3>
+        <p>BookDNA builds a reading profile from your collection, surfaces the blind spots you didn’t know you had, and recommends what to read next — from books you already own.</p>
+        <ul class="feat-list">
+          <li><span class="msr">check_circle</span> Personalized reading profile</li>
+          <li><span class="msr">check_circle</span> Blind spots and what’s missing</li>
+          <li><span class="msr">check_circle</span> Library GPT — ask your shelf anything</li>
+        </ul>
+      </div>
+      <div class="media reveal">
+        <div class="pane" style="background:var(--blue)">
+          <img src="assets/ai.png" alt="AI reading profile" />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding:0 0 30px">
+  <div class="dark reveal" id="insights">
+    <div class="dark-inner">
+      <div>
+        <div class="eyebrow">The knowledge graph</div>
+        <h2>See how your books connect</h2>
+        <p>BookDNA maps your entire library into a living graph — genre clusters, thematic links and the bridge books that tie distant subjects together. Tap any node to explore.</p>
+        <div class="chiprow">
+          <span>Genre clusters</span><span>Bridge books</span><span>Thematic links</span><span>Interactive map</span>
+        </div>
+      </div>
+      <div class="media">
+        <img src="assets/graph.png" alt="Knowledge graph" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">More to love</div>
+      <h2>Built for people who actually own books</h2>
+    </div>
+    <div class="grid6">
+      <div class="fcard reveal"><div class="ic" style="background:var(--blue)"><span class="msr" style="color:var(--indigo)">barcode_scanner</span></div><h3>Barcode scanning</h3><p>Add books in seconds — or type an ISBN to look up everything automatically.</p></div>
+      <div class="fcard reveal"><div class="ic" style="background:var(--amber)"><span class="msr" style="color:#b3691a">timeline</span></div><h3>Reading tracker</h3><p>Log sessions, watch your progress, and keep daily streaks alive.</p></div>
+      <div class="fcard reveal"><div class="ic" style="background:var(--green)"><span class="msr" style="color:#4c7a1e">groups</span></div><h3>Read together</h3><p>Challenges, leaderboards and friends who read like you.</p></div>
+      <div class="fcard reveal"><div class="ic" style="background:var(--purple)"><span class="msr" style="color:#6b3fb0">swap_horiz</span></div><h3>Borrow &amp; lend</h3><p>Track which books are out, who has them, and when they’re due back.</p></div>
+      <div class="fcard reveal"><div class="ic" style="background:var(--pink)"><span class="msr" style="color:#b3326b">payments</span></div><h3>Library worth</h3><p>Know what your collection is worth and which titles are most valuable.</p></div>
+      <div class="fcard reveal"><div class="ic" style="background:var(--blue)"><span class="msr" style="color:var(--indigo)">military_tech</span></div><h3>Levels &amp; badges</h3><p>Turn reading into a habit with goals, levels and achievements.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="pricing" style="background:var(--soft)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Pricing</div>
+      <h2>Start free. Go deeper with Premium.</h2>
+      <p>Build your library for free. Unlock the full intelligence layer whenever you’re ready.</p>
+    </div>
+    <div class="price-grid">
+      <div class="plan reveal">
+        <h3>Free</h3>
+        <div class="price">₹0</div>
+        <div style="color:var(--muted);font-size:15px">Everything to digitize your shelf</div>
+        <ul>
+          <li><span class="msr">check</span> Unlimited book scanning</li>
+          <li><span class="msr">check</span> All four library views</li>
+          <li><span class="msr">check</span> Reading tracker &amp; streaks</li>
+          <li><span class="msr">check</span> Core shelf insights</li>
+        </ul>
+        <a href="#get" class="btn btn-ghost">Get started</a>
+      </div>
+      <div class="plan featured reveal">
+        <div class="tag">MOST POPULAR</div>
+        <h3>Premium</h3>
+        <div class="price">₹1,499<span> / year</span></div>
+        <div style="color:var(--muted);font-size:15px">or ₹199 / month · 7-day free trial</div>
+        <ul>
+          <li><span class="msr">check</span> AI knowledge graph</li>
+          <li><span class="msr">check</span> Shelf photo recognition</li>
+          <li><span class="msr">check</span> Advanced analytics &amp; blind spots</li>
+          <li><span class="msr">check</span> Unlimited Library GPT</li>
+          <li><span class="msr">check</span> Monthly Wrapped &amp; exports</li>
+        </ul>
+        <a href="#get" class="btn btn-primary">Start free trial</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" style="padding-top:20px">
+  <div class="cta reveal">
+    <div class="blob" style="width:380px;height:380px;right:-100px;top:-140px;position:absolute;border-radius:50%;background:rgba(255,255,255,.06)"></div>
+    <h2>Turn your bookshelf into insights</h2>
+    <p>Join readers who finally understand their reading life. Free to start.</p>
+    <div class="store-row">
+      <a class="store" href="#get"><svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M16.36 12.78c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.02-1.12 2.78-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.67zM14.13 5.9c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.85 1.02.08 2.07-.52 2.71-1.3z"/></svg><span><small>Download on the</small><b>App Store</b></span></a>
+      <a class="store play" href="#get"><svg class="tri" viewBox="0 0 24 26" aria-hidden="true"><path d="M1 1.6 13.7 13 1 24.4c-.4-.2-.7-.6-.7-1.2V2.8c0-.6.3-1 .7-1.2Z" fill="#34a853"/><path d="M1 1.6c.1 0 .3 0 .5.1L17 10.5l-3.3 2.5L1 1.6Z" fill="#00c3ff"/><path d="M1 24.4 13.7 13 17 15.5 1.5 24.3c-.2.1-.4.1-.5.1Z" fill="#ff3a44"/><path d="M17 10.5 21.6 13c.9.5.9 1.6 0 2.1L17 17.5 13.7 13 17 10.5Z" fill="#ffc107"/></svg><span><small>Get it on</small><b>Google Play</b></span></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <div class="brand"><span class="logo"><span class="msr" style="font-variation-settings:'FILL' 1">auto_stories</span></span>BookDNA</div>
+        <p>Understand your reading life. Turn your bookshelf into insights.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#insights">Knowledge graph</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#get">Download</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="https://github.com/MohanKrishnaGR/BookDNA">GitHub</a>
+        <a href="support.html">Contact</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="support.html">Support</a>
+        <a href="delete-account.html">Delete account</a>
+      </div>
+    </div>
+    <div class="copyright">
+      <span>© 2026 BookDNA. All rights reserved.</span>
+      <span>Made for readers everywhere.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const hdr=document.getElementById('hdr');
+  addEventListener('scroll',()=>hdr.classList.toggle('scrolled',scrollY>8));
+  const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})},{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
 </body>
 </html>
