@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>BookDNA — Understand your reading life</title>
 <meta name="description" content="BookDNA turns your physical bookshelf into insights. Scan any book, organize your whole library, and decode your reading DNA with AI." />
+<link rel="icon" type="image/png" href="assets/app_icon.png" />
+<link rel="apple-touch-icon" href="assets/app_icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -30,8 +32,9 @@
   header.scrolled{border-color:var(--line)}
   .nav{display:flex;align-items:center;gap:28px;height:72px}
   .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.02em}
-  .logo{width:36px;height:36px;border-radius:11px;background:var(--indigo);display:flex;align-items:center;justify-content:center;flex:none}
+  .logo{width:36px;height:36px;border-radius:11px;background:var(--indigo);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
   .logo .msr{color:#fff;font-size:22px}
+  .logo img{width:100%;height:100%;object-fit:cover}
   .nav .links{display:flex;gap:26px;margin-left:8px}
   .nav .links a{font-size:15px;font-weight:500;color:var(--muted);transition:color .2s}
   .nav .links a:hover{color:var(--ink)}
@@ -167,16 +170,18 @@
 <body>
 <header id="hdr">
   <div class="wrap nav">
-    <div class="brand"><span class="logo"><span class="msr" style="font-variation-settings:'FILL' 1">auto_stories</span></span>BookDNA</div>
+    <div class="brand"><span class="logo"><img src="assets/app_icon.png" alt="BookDNA icon" /></span>BookDNA</div>
     <nav class="links">
       <a href="#features">Features</a>
       <a href="#insights">Insights</a>
+      <!-- Pricing hidden until the store subscription launches
       <a href="#pricing">Pricing</a>
+      -->
     </nav>
     <div class="spacer"></div>
     <div class="nav-cta">
-      <a href="#pricing" class="btn btn-ghost">See pricing</a>
-      <a href="#get" class="btn btn-primary">Get the app</a>
+      <!-- <a href="#pricing" class="btn btn-ghost">See pricing</a> -->
+      <a href="https://play.google.com/store/apps/details?id=com.bookdna.bookdna" class="btn btn-primary">Get the app</a>
     </div>
   </div>
 </header>
@@ -190,11 +195,13 @@
       <h1>Understand your reading life</h1>
       <p class="sub">BookDNA turns your physical bookshelf into insights. Scan any book, organize your whole library, and discover what your shelf says about you — powered by AI.</p>
       <div class="store-row" id="get">
+        <!-- App Store button hidden until the iOS release
         <a class="store" href="#get" aria-label="Download on the App Store">
           <svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M16.36 12.78c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.02-1.12 2.78-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.67zM14.13 5.9c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.85 1.02.08 2.07-.52 2.71-1.3z"/></svg>
           <span><small>Download on the</small><b>App Store</b></span>
         </a>
-        <a class="store play" href="#get" aria-label="Get it on Google Play">
+        -->
+        <a class="store play" href="https://play.google.com/store/apps/details?id=com.bookdna.bookdna" aria-label="Get it on Google Play">
           <svg class="tri" viewBox="0 0 24 26" aria-hidden="true"><path d="M1 1.6 13.7 13 1 24.4c-.4-.2-.7-.6-.7-1.2V2.8c0-.6.3-1 .7-1.2Z" fill="#34a853"/><path d="M1 1.6c.1 0 .3 0 .5.1L17 10.5l-3.3 2.5L1 1.6Z" fill="#00c3ff"/><path d="M1 24.4 13.7 13 17 15.5 1.5 24.3c-.2.1-.4.1-.5.1Z" fill="#ff3a44"/><path d="M17 10.5 21.6 13c.9.5.9 1.6 0 2.1L17 17.5 13.7 13 17 10.5Z" fill="#ffc107"/></svg>
           <span><small>Get it on</small><b>Google Play</b></span>
         </a>
@@ -327,6 +334,7 @@
   </div>
 </section>
 
+<!-- Pricing hidden until the store subscription launches
 <section class="block" id="pricing" style="background:var(--soft)">
   <div class="wrap">
     <div class="sec-head reveal">
@@ -364,6 +372,8 @@
     </div>
   </div>
 </section>
+-->
+
 
 <section class="block" style="padding-top:20px">
   <div class="cta reveal">
@@ -371,8 +381,10 @@
     <h2>Turn your bookshelf into insights</h2>
     <p>Join readers who finally understand their reading life. Free to start.</p>
     <div class="store-row">
+      <!-- App Store button hidden until the iOS release
       <a class="store" href="#get"><svg viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M16.36 12.78c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.02-1.12 2.78-2.23.88-1.28 1.24-2.52 1.26-2.58-.03-.01-2.42-.93-2.44-3.67zM14.13 5.9c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.85 1.02.08 2.07-.52 2.71-1.3z"/></svg><span><small>Download on the</small><b>App Store</b></span></a>
-      <a class="store play" href="#get"><svg class="tri" viewBox="0 0 24 26" aria-hidden="true"><path d="M1 1.6 13.7 13 1 24.4c-.4-.2-.7-.6-.7-1.2V2.8c0-.6.3-1 .7-1.2Z" fill="#34a853"/><path d="M1 1.6c.1 0 .3 0 .5.1L17 10.5l-3.3 2.5L1 1.6Z" fill="#00c3ff"/><path d="M1 24.4 13.7 13 17 15.5 1.5 24.3c-.2.1-.4.1-.5.1Z" fill="#ff3a44"/><path d="M17 10.5 21.6 13c.9.5.9 1.6 0 2.1L17 17.5 13.7 13 17 10.5Z" fill="#ffc107"/></svg><span><small>Get it on</small><b>Google Play</b></span></a>
+      -->
+      <a class="store play" href="https://play.google.com/store/apps/details?id=com.bookdna.bookdna"><svg class="tri" viewBox="0 0 24 26" aria-hidden="true"><path d="M1 1.6 13.7 13 1 24.4c-.4-.2-.7-.6-.7-1.2V2.8c0-.6.3-1 .7-1.2Z" fill="#34a853"/><path d="M1 1.6c.1 0 .3 0 .5.1L17 10.5l-3.3 2.5L1 1.6Z" fill="#00c3ff"/><path d="M1 24.4 13.7 13 17 15.5 1.5 24.3c-.2.1-.4.1-.5.1Z" fill="#ff3a44"/><path d="M17 10.5 21.6 13c.9.5.9 1.6 0 2.1L17 17.5 13.7 13 17 10.5Z" fill="#ffc107"/></svg><span><small>Get it on</small><b>Google Play</b></span></a>
     </div>
   </div>
 </section>
@@ -381,15 +393,15 @@
   <div class="wrap">
     <div class="foot">
       <div>
-        <div class="brand"><span class="logo"><span class="msr" style="font-variation-settings:'FILL' 1">auto_stories</span></span>BookDNA</div>
+        <div class="brand"><span class="logo"><img src="assets/app_icon.png" alt="BookDNA icon" /></span>BookDNA</div>
         <p>Understand your reading life. Turn your bookshelf into insights.</p>
       </div>
       <div>
         <h4>Product</h4>
         <a href="#features">Features</a>
         <a href="#insights">Knowledge graph</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#get">Download</a>
+        <!-- <a href="#pricing">Pricing</a> -->
+        <a href="https://play.google.com/store/apps/details?id=com.bookdna.bookdna">Download</a>
       </div>
       <div>
         <h4>Company</h4>
